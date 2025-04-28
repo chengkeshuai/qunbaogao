@@ -11,14 +11,14 @@ export default function Header() {
             <Link href="/" className="text-2xl font-bold text-gray-900">
               群报告
             </Link>
-            <span className="ml-2 text-sm bg-blue-100 text-blue-800 px-2 py-0.5 rounded">Beta</span>
+            <span className="ml-2 text-sm bg-[#e6f9e6] text-[#2dc100] px-2 py-0.5 rounded">Beta</span>
           </div>
           <div>
             <a 
               href="https://github.com/your-github-username/qunbaogao" 
               target="_blank" 
               rel="noopener noreferrer"
-              className="text-gray-600 hover:text-gray-900"
+              className="text-[#2dc100] hover:text-[#249c00]"
             >
               GitHub
             </a>

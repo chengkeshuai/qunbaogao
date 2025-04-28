@@ -67,7 +67,7 @@ export default function HtmlUploader() {
             HTML代码
           </label>
           <textarea
-            className="w-full h-64 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full h-64 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2dc100] focus:border-transparent"
             placeholder="在此粘贴您的HTML代码..."
             value={htmlCode}
             onChange={handleTextChange}
@@ -79,7 +79,7 @@ export default function HtmlUploader() {
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500"
+              className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-[#2dc100]"
             >
               选择HTML文件
             </button>
@@ -95,7 +95,7 @@ export default function HtmlUploader() {
           <button
             type="submit"
             disabled={isUploading}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+            className="px-4 py-2 bg-[#2dc100] text-white rounded-lg hover:bg-[#249c00] focus:outline-none focus:ring-2 focus:ring-[#2dc100] disabled:opacity-50"
           >
             {isUploading ? '正在部署...' : '部署网页'}
           </button>
@@ -109,14 +109,14 @@ export default function HtmlUploader() {
       )}
 
       {deployedUrl && (
-        <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-          <h3 className="text-lg font-medium text-green-800 mb-2">部署成功！</h3>
-          <p className="mb-2 text-green-700">您的网页已成功部署，可通过以下链接访问：</p>
+        <div className="mt-6 p-4 bg-[#e6f9e6] border border-[#2dc100]/30 rounded-lg">
+          <h3 className="text-lg font-medium text-[#2dc100] mb-2">部署成功！</h3>
+          <p className="mb-2 text-[#238a00]">您的网页已成功部署，可通过以下链接访问：</p>
           <a
             href={deployedUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="block w-full p-3 bg-white border border-green-300 rounded-lg text-blue-600 hover:underline text-center"
+            className="block w-full p-3 bg-white border border-[#2dc100]/30 rounded-lg text-[#2dc100] hover:underline text-center"
           >
             {deployedUrl}
           </a>
@@ -125,7 +125,7 @@ export default function HtmlUploader() {
               href={deployedUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="px-4 py-2 bg-[#2dc100] text-white rounded-lg hover:bg-[#249c00]"
             >
               访问网页
             </a>
