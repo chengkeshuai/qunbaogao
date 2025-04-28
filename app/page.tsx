@@ -1,7 +1,6 @@
 import Header from './components/Header';
 import Footer from './components/Footer';
 import HtmlUploader from './components/HtmlUploader';
-import Image from 'next/image';
 
 export default function Home() {
   return (
@@ -57,7 +56,7 @@ export default function Home() {
                 <h3 className="text-xl font-medium text-gray-900 mb-2">一键部署</h3>
                 <div className="flex-grow flex items-center">
                   <p className="text-base text-gray-600">
-                    点击"部署网页"按钮，系统自动处理并部署
+                    点击&quot;部署网页&quot;按钮，系统自动处理并部署
                   </p>
                 </div>
               </div>
