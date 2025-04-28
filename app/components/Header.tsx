@@ -29,7 +29,7 @@ export default function Header() {
           </div>
           <div>
             <a 
-              href="https://github.com/your-github-username/qunbaogao" 
+              href="https://github.com/chengkeshuai/qunbaogao" 
               target="_blank" 
               rel="noopener noreferrer"
               className="text-[#2dc100] hover:text-[#249c00]"
