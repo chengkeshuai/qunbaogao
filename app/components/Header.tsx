@@ -1,12 +1,16 @@
+'use client';
+
+import Link from 'next/link';
+
 export default function Header() {
   return (
     <header className="bg-white shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
         <div className="flex justify-between items-center">
           <div className="flex items-center">
-            <a href="/" className="text-2xl font-bold text-gray-900">
+            <Link href="/" className="text-2xl font-bold text-gray-900">
               群报告
-            </a>
+            </Link>
             <span className="ml-2 text-sm bg-blue-100 text-blue-800 px-2 py-0.5 rounded">Beta</span>
           </div>
           <div>
