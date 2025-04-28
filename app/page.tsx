@@ -25,18 +25,16 @@ export default function Home() {
             <h2 className="text-3xl font-bold text-gray-900 mb-4 text-center">简单三步流程</h2>
             <p className="text-center text-lg text-gray-600 mb-10">无需技术知识，轻松将HTML代码转为可访问网页</p>
 
-            <div className="flex flex-col md:flex-row justify-between items-center gap-4 md:gap-2">
+            <div className="flex flex-col md:flex-row justify-between items-stretch gap-4 md:gap-2">
               {/* 第一步 */}
-              <div className="flex flex-col items-center text-center w-full md:w-1/3 h-full">
+              <div className="flex flex-col items-center text-center w-full md:w-1/3 bg-white rounded-lg p-4">
                 <div className="bg-[#e6f9e6] p-6 rounded-full w-24 h-24 flex items-center justify-center mb-4">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-[#2dc100]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                   </svg>
                 </div>
                 <h3 className="text-xl font-medium text-gray-900 mb-2">上传或粘贴代码</h3>
-                <p className="text-base text-gray-600">
-                  将HTML代码粘贴到文本框中或上传HTML文件
-                </p>
+                <p className="text-base text-gray-600">将HTML代码粘贴到文本框中或上传HTML文件</p>
               </div>
 
               {/* 连接线 */}
@@ -45,16 +43,14 @@ export default function Home() {
               </div>
 
               {/* 第二步 */}
-              <div className="flex flex-col items-center text-center w-full md:w-1/3 h-full">
+              <div className="flex flex-col items-center text-center w-full md:w-1/3 bg-white rounded-lg p-4">
                 <div className="bg-[#e6f9e6] p-6 rounded-full w-24 h-24 flex items-center justify-center mb-4">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-[#2dc100]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
                   </svg>
                 </div>
                 <h3 className="text-xl font-medium text-gray-900 mb-2">一键部署</h3>
-                <p className="text-base text-gray-600">
-                  点击&quot;部署网页&quot;按钮，系统自动处理并部署
-                </p>
+                <p className="text-base text-gray-600">点击&quot;部署网页&quot;按钮，系统自动处理并部署</p>
               </div>
 
               {/* 连接线 */}
@@ -63,16 +59,14 @@ export default function Home() {
               </div>
 
               {/* 第三步 */}
-              <div className="flex flex-col items-center text-center w-full md:w-1/3 h-full">
+              <div className="flex flex-col items-center text-center w-full md:w-1/3 bg-white rounded-lg p-4">
                 <div className="bg-[#e6f9e6] p-6 rounded-full w-24 h-24 flex items-center justify-center mb-4">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-[#2dc100]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
                   </svg>
                 </div>
                 <h3 className="text-xl font-medium text-gray-900 mb-2">分享访问</h3>
-                <p className="text-base text-gray-600">
-                  获取专属链接，一键分享给他人或多端访问
-                </p>
+                <p className="text-base text-gray-600">获取专属链接，一键分享给他人或多端访问</p>
               </div>
             </div>
           </div>
