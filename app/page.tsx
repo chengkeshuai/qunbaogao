@@ -25,7 +25,7 @@ export default function Home() {
             <h2 className="text-3xl font-bold text-gray-900 mb-4 text-center">简单三步流程</h2>
             <p className="text-center text-lg text-gray-600 mb-10">无需技术知识，轻松将HTML代码转为可访问网页</p>
 
-            <div className="flex flex-col md:flex-row justify-between items-stretch gap-4 md:gap-2">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-4 md:gap-2">
               {/* 第一步 */}
               <div className="flex flex-col items-center text-center w-full md:w-1/3 h-full">
                 <div className="bg-[#e6f9e6] p-6 rounded-full w-24 h-24 flex items-center justify-center mb-4">
@@ -34,11 +34,9 @@ export default function Home() {
                   </svg>
                 </div>
                 <h3 className="text-xl font-medium text-gray-900 mb-2">上传或粘贴代码</h3>
-                <div className="flex-grow flex items-center">
-                  <p className="text-base text-gray-600">
-                    将HTML代码粘贴到文本框中或上传HTML文件
-                  </p>
-                </div>
+                <p className="text-base text-gray-600">
+                  将HTML代码粘贴到文本框中或上传HTML文件
+                </p>
               </div>
 
               {/* 连接线 */}
@@ -54,11 +52,9 @@ export default function Home() {
                   </svg>
                 </div>
                 <h3 className="text-xl font-medium text-gray-900 mb-2">一键部署</h3>
-                <div className="flex-grow flex items-center">
-                  <p className="text-base text-gray-600">
-                    点击&quot;部署网页&quot;按钮，系统自动处理并部署
-                  </p>
-                </div>
+                <p className="text-base text-gray-600">
+                  点击&quot;部署网页&quot;按钮，系统自动处理并部署
+                </p>
               </div>
 
               {/* 连接线 */}
@@ -74,11 +70,9 @@ export default function Home() {
                   </svg>
                 </div>
                 <h3 className="text-xl font-medium text-gray-900 mb-2">分享访问</h3>
-                <div className="flex-grow flex items-center">
-                  <p className="text-base text-gray-600">
-                    获取专属链接，一键分享给他人或多端访问
-                  </p>
-                </div>
+                <p className="text-base text-gray-600">
+                  获取专属链接，一键分享给他人或多端访问
+                </p>
               </div>
             </div>
           </div>
