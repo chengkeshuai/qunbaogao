@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
+import fs from 'fs';
+import path from 'path';
+import { promises as fsPromises } from 'fs';
 
 // 更新为使用最新的Gemini 2.5 Pro模型
 const MODEL_NAME = "gemini-2.5-pro-preview-05-06";
@@ -35,7 +38,37 @@ export async function POST(request: NextRequest) {
     }
 
     const chatContent = body.chatContent;
-    const promptTemplate = body.promptTemplate || '将聊天记录转换为美观的HTML网页';
+    let promptTemplate = body.promptTemplate || '将聊天记录转换为美观的HTML网页';
+
+    // 处理特殊模板 - 暗黑华丽风格
+    if (promptTemplate === '特殊模板:暗黑华丽风格') {
+      // 从文件中读取完整模板
+      try {
+        const templateDir = path.join(process.cwd(), 'app/data/templates');
+        const templatePath = path.join(templateDir, 'dark-elegant.txt');
+        
+        // 检查模板文件是否存在
+        await fsPromises.access(templatePath);
+        
+        // 读取模板内容
+        promptTemplate = await fsPromises.readFile(templatePath, 'utf-8');
+        
+        // 检查是否有第二部分模板
+        const part2Path = path.join(templateDir, 'dark-elegant-part2.txt');
+        try {
+          await fsPromises.access(part2Path);
+          const part2Content = await fsPromises.readFile(part2Path, 'utf-8');
+          promptTemplate += part2Content;
+        } catch (error) {
+          // 如果第二部分不存在，就使用当前模板
+          console.log('暗黑华丽风格模板第二部分不存在，仅使用主模板');
+        }
+      } catch (error) {
+        console.error('读取暗黑华丽风格模板失败:', error);
+        // 如果读取失败，使用默认提示词
+        promptTemplate = '将聊天记录转换为暗黑华丽风格的HTML网页，使用深色背景和优雅的排版';
+      }
+    }
 
     // 构建完整提示词
     const fullPrompt = `${promptTemplate}\n\n以下是聊天记录内容:\n${chatContent}\n\n请生成完整可用的HTML代码，确保代码具有良好的移动端适配性和页面样式。`;

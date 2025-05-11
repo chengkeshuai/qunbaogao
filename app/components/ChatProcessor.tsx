@@ -27,6 +27,12 @@ const promptTemplates: PromptTemplate[] = [
     template: '请将以下微信聊天记录转换为一个具有杂志排版风格的HTML网页。要求：\n1. 使用优雅的无衬线字体，考虑字间距和行高的美观设计\n2. 采用多栏布局，在大屏幕上呈现杂志般的阅读体验\n3. 自动提取重点内容，使用特殊设计强调显示\n4. 引用与正文使用不同的样式，增加层次感\n5. 包含目录索引，便于导航\n6. 添加精美的分隔线和装饰元素，增强杂志感\n7. 使用丰富的排版技巧，如首字下沉、段落间距变化等\n8. 在合适的位置添加自动生成的摘要或引言'
   },
   {
+    id: 'dark-elegant',
+    name: '暗黑华丽风格',
+    description: '高级暗色调设计，带精美视觉元素',
+    template: '特殊模板:暗黑华丽风格'
+  },
+  {
     id: 'report',
     name: '总结报告',
     description: '自动总结聊天内容要点',
@@ -138,35 +144,84 @@ export default function ChatProcessor() {
       // 获取选中的提示词模板
       const template = promptTemplates.find(t => t.id === selectedTemplate)?.template || promptTemplates[0].template;
       
-      // 检查是否需要分块处理（处理超长聊天记录）
-      if (needsChunking(preprocessedContent)) {
-        // 对于超长聊天记录，先告知用户
-        setStreamContent('聊天记录较长，系统将分段处理以获得最佳效果...\n\n');
-        
-        // 分块处理
-        const chunks = chunkContent(preprocessedContent);
-        let fullHtml = '';
-        
-        // 逐块处理
-        for (let i = 0; i < chunks.length; i++) {
-          const chunk = chunks[i];
-          setStreamContent(prev => prev + `\n处理第 ${i+1}/${chunks.length} 部分...\n`);
+      // 处理暗黑华丽风格特殊模板
+      if (template === '特殊模板:暗黑华丽风格') {
+        // 从服务器获取特殊模板内容
+        try {
+          setStreamContent('正在加载暗黑华丽风格模板...\n');
+          const response = await fetch('/api/templates/dark-elegant');
           
-          // 构建特定的提示词，针对分块处理场景
-          let chunkPrompt = template;
-          if (i > 0) {
-            chunkPrompt = `继续处理前面的聊天记录，这是第 ${i+1}/${chunks.length} 部分。请确保生成的HTML代码可以无缝衔接前面的内容：\n${template}`;
+          if (!response.ok) {
+            throw new Error('无法加载暗黑华丽风格模板');
           }
           
-          // 处理当前块
-          const chunkResult = await processChunk(chunk, chunkPrompt);
-          fullHtml += chunkResult;
+          const darkElegantTemplate = await response.text();
+          
+          // 检查是否需要分块处理
+          if (needsChunking(preprocessedContent)) {
+            setStreamContent(prev => prev + '聊天记录较长，系统将分段处理以获得最佳效果...\n\n');
+            
+            // 分块处理逻辑
+            const chunks = chunkContent(preprocessedContent);
+            let fullHtml = '';
+            
+            for (let i = 0; i < chunks.length; i++) {
+              const chunk = chunks[i];
+              setStreamContent(prev => prev + `\n处理第 ${i+1}/${chunks.length} 部分...\n`);
+              
+              // 构建特定的提示词
+              let chunkPrompt = darkElegantTemplate;
+              if (i > 0) {
+                chunkPrompt = `继续处理前面的聊天记录，这是第 ${i+1}/${chunks.length} 部分。请确保生成的HTML代码可以无缝衔接前面的内容：\n${darkElegantTemplate}`;
+              }
+              
+              // 处理当前块
+              const chunkResult = await processChunk(chunk, chunkPrompt);
+              fullHtml += chunkResult;
+            }
+            
+            setGeneratedHtml(fullHtml);
+          } else {
+            // 正常处理
+            await processChunk(preprocessedContent, darkElegantTemplate, true);
+          }
+        } catch (error) {
+          setError(`加载暗黑华丽风格模板失败: ${(error as Error).message}`);
+          setIsGenerating(false);
+          return;
         }
-        
-        setGeneratedHtml(fullHtml);
       } else {
-        // 正常处理
-        await processChunk(preprocessedContent, template, true);
+        // 标准模板处理
+        // 检查是否需要分块处理（处理超长聊天记录）
+        if (needsChunking(preprocessedContent)) {
+          // 对于超长聊天记录，先告知用户
+          setStreamContent('聊天记录较长，系统将分段处理以获得最佳效果...\n\n');
+          
+          // 分块处理
+          const chunks = chunkContent(preprocessedContent);
+          let fullHtml = '';
+          
+          // 逐块处理
+          for (let i = 0; i < chunks.length; i++) {
+            const chunk = chunks[i];
+            setStreamContent(prev => prev + `\n处理第 ${i+1}/${chunks.length} 部分...\n`);
+            
+            // 构建特定的提示词，针对分块处理场景
+            let chunkPrompt = template;
+            if (i > 0) {
+              chunkPrompt = `继续处理前面的聊天记录，这是第 ${i+1}/${chunks.length} 部分。请确保生成的HTML代码可以无缝衔接前面的内容：\n${template}`;
+            }
+            
+            // 处理当前块
+            const chunkResult = await processChunk(chunk, chunkPrompt);
+            fullHtml += chunkResult;
+          }
+          
+          setGeneratedHtml(fullHtml);
+        } else {
+          // 正常处理
+          await processChunk(preprocessedContent, template, true);
+        }
       }
     } catch (err) {
       setError((err as Error).message || '处理聊天记录时出错');
