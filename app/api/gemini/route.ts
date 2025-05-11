@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 // 使用环境变量中的API密钥
 const API_KEY = process.env.GEMINI_API_KEY!;
 // 模型名称
-const MODEL_NAME = "gemini-1.0-pro";
+const MODEL_NAME = "gemini-2.5-pro-preview-05-06";
 
 export async function POST(req: NextRequest) {
   try {
