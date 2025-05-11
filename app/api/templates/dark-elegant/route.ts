@@ -7,7 +7,7 @@ import { promises as fsPromises } from 'fs';
 export async function GET(request: NextRequest) {
   try {
     // 检查是否已有保存的模板文件
-    const templateDir = path.join(process.cwd(), 'app/data/templates');
+    const templateDir = path.join('/tmp', 'data/templates');
     const templatePath = path.join(templateDir, 'dark-elegant.txt');
     
     try {
@@ -227,7 +227,7 @@ export async function POST(request: NextRequest) {
     }
     
     // 保存模板
-    const templateDir = path.join(process.cwd(), 'app/data/templates');
+    const templateDir = path.join('/tmp', 'data/templates');
     const templatePath = path.join(templateDir, 'dark-elegant.txt');
     
     // 确保目录存在
