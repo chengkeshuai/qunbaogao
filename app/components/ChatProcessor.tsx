@@ -54,6 +54,7 @@ export default function ChatProcessor() {
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
+  const codeContainerRef = useRef<HTMLDivElement>(null);
 
   // 当组件卸载时关闭EventSource连接
   useEffect(() => {
@@ -63,6 +64,13 @@ export default function ChatProcessor() {
       }
     };
   }, []);
+
+  // 监听streamContent变化，自动滚动到底部
+  useEffect(() => {
+    if (codeContainerRef.current && isGenerating) {
+      codeContainerRef.current.scrollTop = codeContainerRef.current.scrollHeight;
+    }
+  }, [streamContent, isGenerating]);
 
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setChatContent(e.target.value);
@@ -162,7 +170,17 @@ export default function ChatProcessor() {
               }
 
               if (data.text) {
-                setStreamContent(prev => prev + data.text);
+                // 使用函数形式的setState以确保正确的状态更新顺序
+                setStreamContent(prev => {
+                  const newContent = prev + data.text;
+                  // 在下一个微任务中滚动到底部，确保DOM已更新
+                  setTimeout(() => {
+                    if (codeContainerRef.current) {
+                      codeContainerRef.current.scrollTop = codeContainerRef.current.scrollHeight;
+                    }
+                  }, 0);
+                  return newContent;
+                });
                 fullHtml += data.text;
               }
 
@@ -457,7 +475,10 @@ export default function ChatProcessor() {
             )}
           </div>
           
-          <div className="bg-gray-900 rounded-md overflow-hidden max-h-96 overflow-y-auto">
+          <div 
+            ref={codeContainerRef}
+            className="bg-gray-900 rounded-md overflow-hidden max-h-96 overflow-y-auto"
+          >
             <SyntaxHighlighter
               language="html"
               style={atomDark}
