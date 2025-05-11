@@ -1,6 +1,7 @@
 import Header from './components/Header';
 import Footer from './components/Footer';
 import HtmlUploader from './components/HtmlUploader';
+import Link from 'next/link';
 
 export default function Home() {
   return (
@@ -9,8 +10,62 @@ export default function Home() {
       
       <main className="flex-grow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <div className="text-center mb-12">
-            <h1 className="text-4xl font-bold text-gray-900 mb-4">HTML代码转可访问网页</h1>
+          {/* 功能选择卡片 */}
+          <div className="text-center mb-16">
+            <h1 className="text-4xl font-bold text-gray-900 mb-4">群报告 - 群聊内容转网页工具</h1>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-8">
+              选择合适的工具，将群聊内容转换为精美网页
+            </p>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+              <Link href="/chat" className="block bg-white rounded-lg shadow-lg overflow-hidden transform transition-transform hover:scale-105 hover:shadow-xl">
+                <div className="p-6">
+                  <div className="w-16 h-16 bg-[#e6f9e6] text-[#2dc100] rounded-lg flex items-center justify-center mx-auto mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                    </svg>
+                  </div>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-2">微信聊天记录转网页</h2>
+                  <p className="text-gray-600 mb-4">
+                    上传微信聊天记录TXT文件，通过AI生成精美网页，导出多种格式
+                  </p>
+                  <div className="bg-[#f3f9f3] p-3 rounded-lg">
+                    <p className="text-gray-700 text-sm">
+                      <span className="font-medium">特点：</span> 智能分析、多种模板、代码生成可视化
+                    </p>
+                  </div>
+                </div>
+                <div className="bg-[#e6f9e6] text-center py-3">
+                  <span className="text-[#2dc100] font-medium">开始使用 →</span>
+                </div>
+              </Link>
+              
+              <Link href="/" className="block bg-white rounded-lg shadow-lg overflow-hidden transform transition-transform hover:scale-105 hover:shadow-xl">
+                <div className="p-6">
+                  <div className="w-16 h-16 bg-[#e6f9e6] text-[#2dc100] rounded-lg flex items-center justify-center mx-auto mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                    </svg>
+                  </div>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-2">HTML代码转可访问网页</h2>
+                  <p className="text-gray-600 mb-4">
+                    上传或粘贴HTML代码，快速部署为可在多端设备访问的网页
+                  </p>
+                  <div className="bg-[#f3f9f3] p-3 rounded-lg">
+                    <p className="text-gray-700 text-sm">
+                      <span className="font-medium">特点：</span> 快速部署、专属链接、云端存储
+                    </p>
+                  </div>
+                </div>
+                <div className="bg-[#e6f9e6] text-center py-3">
+                  <span className="text-[#2dc100] font-medium">立即尝试 →</span>
+                </div>
+              </Link>
+            </div>
+          </div>
+                    
+          <div className="border-t border-gray-200 pt-16 mt-8">
+            <h2 className="text-3xl font-bold text-gray-900 mb-4 text-center">HTML代码转可访问网页</h2>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
               上传或粘贴您的HTML代码，我们将为您生成一个可在多端设备访问的网页，并提供专属链接。
             </p>
@@ -78,10 +133,10 @@ export default function Home() {
                 <div className="p-8 lg:p-12">
                   <h2 className="text-4xl font-bold text-gray-900 mb-6">关于群报告</h2>
                   <p className="text-lg text-gray-700 mb-4">
-                    群报告是一个专为HTML代码转换设计的可视化平台。无需复杂部署，简单几步即可将HTML代码变成可访问的网页。
+                    群报告是一个专为群聊内容分享设计的可视化平台。无需复杂部署，简单几步即可将聊天记录或HTML代码变成可访问的网页。
                   </p>
                   <p className="text-lg text-gray-700 mb-6">
-                    我们使用先进的云存储技术，确保您的网页安全、稳定且持久可访问，让分享和展示变得简单高效。
+                    我们使用先进的云存储技术和AI生成技术，确保您的网页安全、稳定且持久可访问，让分享和展示变得简单高效。
                   </p>
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
@@ -89,13 +144,13 @@ export default function Home() {
                       <svg className="h-6 w-6 text-[#2dc100] mt-1 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                       </svg>
-                      <span className="text-base text-gray-700">简单易用的上传界面</span>
+                      <span className="text-base text-gray-700">简单易用的界面</span>
                     </div>
                     <div className="flex items-start">
                       <svg className="h-6 w-6 text-[#2dc100] mt-1 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                       </svg>
-                      <span className="text-base text-gray-700">快速部署到云端</span>
+                      <span className="text-base text-gray-700">AI智能处理</span>
                     </div>
                     <div className="flex items-start">
                       <svg className="h-6 w-6 text-[#2dc100] mt-1 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
@@ -111,12 +166,12 @@ export default function Home() {
                     </div>
                   </div>
                   
-                  <a href="#" className="inline-flex items-center text-lg text-[#2dc100] hover:text-[#249c00]">
-                    <span>了解更多</span>
+                  <Link href="/chat" className="inline-flex items-center text-lg text-[#2dc100] hover:text-[#249c00]">
+                    <span>尝试聊天转网页功能</span>
                     <svg className="ml-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
                     </svg>
-                  </a>
+                  </Link>
                 </div>
                 
                 <div className="flex items-center justify-center p-12">
