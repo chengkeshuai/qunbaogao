@@ -1,5 +1,8 @@
 import "@tailwindcss/postcss";
 
 export default {
-  plugins: ["@tailwindcss/postcss"],
+  plugins: {
+    tailwindcss: {},
+    autoprefixer: {},
+  },
 };
