@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, HarmCategory, HarmBlockThreshold } from "@google/genai";
 import { NextRequest, NextResponse } from "next/server";
 
 // 使用环境变量中的API密钥
@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
     const { prompt, messages, template } = await req.json();
 
     // 初始化Google AI客户端
-    const genAI = new GoogleGenAI({ apiKey: API_KEY });
+    const ai = new GoogleGenAI({ apiKey: API_KEY });
 
     // 根据特定模板使用不同的提示词
     let fullPrompt = "";
@@ -49,45 +49,49 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 获取模型，并将generationConfig和safetySettings移到这里
-    const model = genAI.getGenerativeModel({
-      model: MODEL_NAME,
-      generationConfig: {
+    // 直接通过 ai.models.generateContentStream 调用 API
+    // 并将 model, contents, generationConfig 和 safetySettings 作为参数传入
+    const streamResult = await ai.models.generateContentStream({
+      model: MODEL_NAME, 
+      contents: [{ role: "user", parts: [{ text: fullPrompt }] }], // 根据文档，contents 是一个数组
+      // 将 generationConfig 的属性直接放在 config 下，safetySettings 也直接在 config 下
+      config: {
         temperature: 0.7,
         topP: 0.95,
         topK: 64,
         maxOutputTokens: 8192,
-      },
-      safetySettings: [
-        {
-          category: "HARM_CATEGORY_HARASSMENT",
-          threshold: "BLOCK_MEDIUM_AND_ABOVE"
-        },
-        {
-          category: "HARM_CATEGORY_HATE_SPEECH",
-          threshold: "BLOCK_MEDIUM_AND_ABOVE"
-        },
-        {
-          category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-          threshold: "BLOCK_MEDIUM_AND_ABOVE"
-        },
-        {
-          category: "HARM_CATEGORY_DANGEROUS_CONTENT",
-          threshold: "BLOCK_MEDIUM_AND_ABOVE"
-        },
-      ],
+        safetySettings: [
+          {
+            category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+            threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE
+          },
+          {
+            category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+            threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE
+          },
+          {
+            category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+            threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE
+          },
+          {
+            category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+            threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE
+          },
+        ],
+      }
     });
-
-    // 创建流式响应
-    const streamResult = await model.generateContentStream([{ text: fullPrompt }]);
 
     // 创建一个可读流用于Next.js响应
     const readableStream = new ReadableStream({
       async start(controller) {
         try {
-          for await (const chunk of streamResult.stream) {
-            const chunkText = chunk.text();
-            controller.enqueue(new TextEncoder().encode(chunkText));
+          // 直接迭代 streamResult (它本身就是异步迭代器)
+          for await (const chunk of streamResult) { 
+            // chunk.text 是一个属性，不是方法
+            const chunkText = chunk.text; 
+            if (chunkText) { // 确保 text 存在
+                controller.enqueue(new TextEncoder().encode(chunkText));
+            }
           }
         } catch (error) {
           console.error("流式处理错误:", error);
