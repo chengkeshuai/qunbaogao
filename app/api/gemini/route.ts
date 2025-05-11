@@ -1,170 +1,118 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { GoogleGenAI } from '@google/genai';
-import fs from 'fs';
-import path from 'path';
-import { promises as fsPromises } from 'fs';
+import { GoogleGenAI } from "@google/genai";
+import { NextRequest, NextResponse } from "next/server";
 
-// 更新为使用最新的Gemini 2.5 Pro模型
-const MODEL_NAME = "gemini-2.5-pro-preview-05-06";
-const API_KEY = process.env.GEMINI_API_KEY || '';
+// 使用环境变量中的API密钥
+const API_KEY = process.env.GEMINI_API_KEY!;
+// 模型名称
+const MODEL_NAME = "gemini-1.0-pro";
 
-// 初始化Gemini API客户端
-const ai = new GoogleGenAI({ apiKey: API_KEY });
-
-type StreamData = {
-  text: string;
-  finish: boolean;
-};
-
-export async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
-    // 验证API密钥是否配置
-    if (!API_KEY) {
-      return NextResponse.json(
-        { error: '未配置Gemini API密钥' },
-        { status: 500 }
-      );
+    // 解析请求体
+    const { prompt, messages, template } = await req.json();
+
+    // 初始化Google AI客户端
+    const genAI = new GoogleGenAI({ apiKey: API_KEY });
+
+    // 根据特定模板使用不同的提示词
+    let fullPrompt = "";
+    
+    if (template === "dark-elegant") {
+      // 对于"暗黑华丽风格"，我们使用特定的提示词
+      try {
+        const templateResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/templates/dark-elegant`);
+        if (!templateResponse.ok) {
+          throw new Error("无法获取暗黑华丽风格模板");
+        }
+        const templateData = await templateResponse.json();
+        const templatePrompt = templateData.template;
+        fullPrompt = templatePrompt.replace("{prompt}", prompt);
+      } catch (error) {
+        console.error("获取暗黑华丽风格模板失败:", error);
+        // 如果无法获取模板，则退回使用原始prompt
+        fullPrompt = prompt;
+      }
+    } else {
+      // 对于其他模板或无模板，构建包含历史消息的提示
+      fullPrompt = messages
+        .map((msg: { role: string; parts: { text: string }[] }) =>
+          msg.parts.map((part) => part.text).join("\n")
+        )
+        .join("\n") + `\n${prompt}`;
     }
 
-    // 解析请求内容
-    const body = await request.json();
-    
-    // 验证聊天内容和提示词模板
-    if (!body.chatContent || typeof body.chatContent !== 'string') {
+    // 确保fullPrompt不为空
+    if (!fullPrompt.trim()) {
       return NextResponse.json(
-        { error: '缺少聊天内容或格式不正确' },
+        { error: "提示内容不能为空" },
         { status: 400 }
       );
     }
 
-    const chatContent = body.chatContent;
-    let promptTemplate = body.promptTemplate || '将聊天记录转换为美观的HTML网页';
-
-    // 处理特殊模板 - 暗黑华丽风格
-    if (promptTemplate === '特殊模板:暗黑华丽风格') {
-      // 从文件中读取完整模板
-      try {
-        const templateDir = path.join(process.cwd(), 'app/data/templates');
-        const templatePath = path.join(templateDir, 'dark-elegant.txt');
-        
-        // 检查模板文件是否存在
-        await fsPromises.access(templatePath);
-        
-        // 读取模板内容
-        promptTemplate = await fsPromises.readFile(templatePath, 'utf-8');
-        
-        // 检查是否有第二部分模板
-        const part2Path = path.join(templateDir, 'dark-elegant-part2.txt');
-        try {
-          await fsPromises.access(part2Path);
-          const part2Content = await fsPromises.readFile(part2Path, 'utf-8');
-          promptTemplate += part2Content;
-        } catch (error) {
-          // 如果第二部分不存在，就使用当前模板
-          console.log('暗黑华丽风格模板第二部分不存在，仅使用主模板');
-        }
-      } catch (error) {
-        console.error('读取暗黑华丽风格模板失败:', error);
-        // 如果读取失败，使用默认提示词
-        promptTemplate = '将聊天记录转换为暗黑华丽风格的HTML网页，使用深色背景和优雅的排版';
-      }
-    }
-
-    // 构建完整提示词
-    const fullPrompt = `${promptTemplate}\n\n以下是聊天记录内容:\n${chatContent}\n\n请生成完整可用的HTML代码，确保代码具有良好的移动端适配性和页面样式。`;
-
-    // 创建流式响应，添加优化后的参数
-    const stream = await ai.models.generateContentStream({
+    // 获取模型，并将generationConfig和safetySettings移到这里
+    const model = genAI.getGenerativeModel({
       model: MODEL_NAME,
-      contents: fullPrompt,
-      // 添加增强参数设置
       generationConfig: {
-        temperature: 0.7,     // 控制创意度，0.7是一个平衡值
-        topP: 0.95,           // 控制多样性
-        topK: 64,             // 保持默认值
-        maxOutputTokens: 8192, // 增加输出上限，但保持在合理范围内
-        stopSequences: []     // 可根据需要设置停止序列
+        temperature: 0.7,
+        topP: 0.95,
+        topK: 64,
+        maxOutputTokens: 8192,
       },
-      // 设置安全设置，确保内容适当
       safetySettings: [
         {
-          category: 'HARM_CATEGORY_HARASSMENT',
-          threshold: 'BLOCK_MEDIUM_AND_ABOVE',
+          category: "HARM_CATEGORY_HARASSMENT",
+          threshold: "BLOCK_MEDIUM_AND_ABOVE"
         },
         {
-          category: 'HARM_CATEGORY_HATE_SPEECH',
-          threshold: 'BLOCK_MEDIUM_AND_ABOVE',
+          category: "HARM_CATEGORY_HATE_SPEECH",
+          threshold: "BLOCK_MEDIUM_AND_ABOVE"
         },
         {
-          category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
-          threshold: 'BLOCK_MEDIUM_AND_ABOVE',
+          category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+          threshold: "BLOCK_MEDIUM_AND_ABOVE"
         },
         {
-          category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
-          threshold: 'BLOCK_MEDIUM_AND_ABOVE',
-        }
-      ]
+          category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+          threshold: "BLOCK_MEDIUM_AND_ABOVE"
+        },
+      ],
     });
-    
-    // 设置响应头
-    const headers = new Headers();
-    headers.set('Content-Type', 'text/event-stream');
-    headers.set('Cache-Control', 'no-cache');
-    headers.set('Connection', 'keep-alive');
 
     // 创建流式响应
-    const encoder = new TextEncoder();
+    const streamResult = await model.generateContentStream([{ text: fullPrompt }]);
+
+    // 创建一个可读流用于Next.js响应
     const readableStream = new ReadableStream({
       async start(controller) {
         try {
-          let fullResponse = '';
-          
-          // 处理流式响应
-          for await (const chunk of stream) {
-            // 提取文本内容
-            const chunkText = chunk.text || '';
-            fullResponse += chunkText;
-            
-            // 发送数据块
-            const data: StreamData = {
-              text: chunkText,
-              finish: false
-            };
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+          for await (const chunk of streamResult.stream) {
+            const chunkText = chunk.text();
+            controller.enqueue(new TextEncoder().encode(chunkText));
           }
-          
-          // 发送完成信号
-          controller.enqueue(
-            encoder.encode(
-              `data: ${JSON.stringify({
-                text: fullResponse,
-                finish: true
-              })}\n\n`
-            )
-          );
-          controller.close();
         } catch (error) {
-          console.error('生成内容时出错:', error);
-          const errorData = {
-            error: '处理请求时出错',
-            details: (error as Error).message
-          };
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify(errorData)}\n\n`));
+          console.error("流式处理错误:", error);
+          controller.error(error);
+        } finally {
           controller.close();
         }
-      }
+      },
     });
 
-    return new Response(readableStream, {
-      headers,
+    // 返回流式响应
+    return new NextResponse(readableStream, {
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
     });
   } catch (error) {
-    console.error('处理请求时出错:', error);
+    console.error("Gemini API 错误:", error);
+    // 根据错误类型返回不同的错误信息
+    if (error instanceof Error && error.message.includes("API key not valid")) {
+      return NextResponse.json(
+        { error: "Gemini API 密钥无效或未设置" },
+        { status: 500 }
+      );
+    }
     return NextResponse.json(
-      { 
-        error: '处理请求时出错',
-        details: (error as Error).message
-      },
+      { error: "处理请求失败" },
       { status: 500 }
     );
   }
