@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
 
-const MODEL_NAME = "gemini-2.0-flash-001";
+// 更新为使用最新的Gemini 2.5 Pro模型
+const MODEL_NAME = "gemini-2.5-pro-preview-05-06";
 const API_KEY = process.env.GEMINI_API_KEY || '';
 
 // 初始化Gemini API客户端
@@ -39,10 +40,37 @@ export async function POST(request: NextRequest) {
     // 构建完整提示词
     const fullPrompt = `${promptTemplate}\n\n以下是聊天记录内容:\n${chatContent}\n\n请生成完整可用的HTML代码，确保代码具有良好的移动端适配性和页面样式。`;
 
-    // 创建流式响应
+    // 创建流式响应，添加优化后的参数
     const stream = await ai.models.generateContentStream({
       model: MODEL_NAME,
-      contents: fullPrompt
+      contents: fullPrompt,
+      // 添加增强参数设置
+      generationConfig: {
+        temperature: 0.7,     // 控制创意度，0.7是一个平衡值
+        topP: 0.95,           // 控制多样性
+        topK: 64,             // 保持默认值
+        maxOutputTokens: 8192, // 增加输出上限，但保持在合理范围内
+        stopSequences: []     // 可根据需要设置停止序列
+      },
+      // 设置安全设置，确保内容适当
+      safetySettings: [
+        {
+          category: 'HARM_CATEGORY_HARASSMENT',
+          threshold: 'BLOCK_MEDIUM_AND_ABOVE',
+        },
+        {
+          category: 'HARM_CATEGORY_HATE_SPEECH',
+          threshold: 'BLOCK_MEDIUM_AND_ABOVE',
+        },
+        {
+          category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
+          threshold: 'BLOCK_MEDIUM_AND_ABOVE',
+        },
+        {
+          category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
+          threshold: 'BLOCK_MEDIUM_AND_ABOVE',
+        }
+      ]
     });
     
     // 设置响应头
