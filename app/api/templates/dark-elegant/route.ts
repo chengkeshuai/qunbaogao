@@ -21,11 +21,8 @@ export async function GET(request: NextRequest) {
       
       // 尝试读取现有模板文件
       const templateContent = await fsPromises.readFile(templatePath, 'utf-8');
-      return new NextResponse(templateContent, {
-        headers: {
-          'Content-Type': 'text/plain; charset=utf-8',
-        },
-      });
+      // 返回JSON格式的模板内容
+      return NextResponse.json({ template: templateContent }); 
     } catch (error) {
       // 如果文件不存在，创建默认的暗黑华丽风格模板
       const darkElegantTemplate = `任务：根据提供的微信群聊天记录（txt格式）生成今日群日报，输出为风格固定、一致的HTML页面，适合截图分享
@@ -202,12 +199,8 @@ export async function GET(request: NextRequest) {
       
       await fsPromises.writeFile(secondPartPath, darkElegantTemplatePart2, 'utf-8');
       
-      // 返回第一部分模板内容
-      return new NextResponse(darkElegantTemplate, {
-        headers: {
-          'Content-Type': 'text/plain; charset=utf-8',
-        },
-      });
+      // 返回JSON格式的模板内容
+      return NextResponse.json({ template: darkElegantTemplate }); 
     }
   } catch (error) {
     console.error('处理模板请求时出错:', error);
