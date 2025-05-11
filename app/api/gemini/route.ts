@@ -9,7 +9,7 @@ const MODEL_NAME = "gemini-1.0-pro";
 export async function POST(req: NextRequest) {
   try {
     // 解析请求体
-    const { prompt, messages, template } = await req.json();
+    const { prompt, messages = [], template } = await req.json();
 
     // 初始化Google AI客户端
     const ai = new GoogleGenAI({ apiKey: API_KEY });
@@ -35,9 +35,12 @@ export async function POST(req: NextRequest) {
     } else {
       // 对于其他模板或无模板，构建包含历史消息的提示
       fullPrompt = messages
-        .map((msg: { role: string; parts: { text: string }[] }) =>
-          msg.parts.map((part) => part.text).join("\n")
-        )
+        .map((msg: { role: string; parts: { text: string }[] }) => {
+          if (msg && Array.isArray(msg.parts)) {
+            return msg.parts.map((part) => part.text).join("\n");
+          }
+          return "";
+        })
         .join("\n") + `\n${prompt}`;
     }
 
