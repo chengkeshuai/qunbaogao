@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { uploadHtml } from '@/app/lib/r2';
+// import { uploadHtml } from '@/app/lib/r2'; // 旧的R2上传服务
+import { uploadFileToCOS } from '@/lib/cos-upload'; // 新的COS上传服务
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,11 +23,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 简单验证HTML内容
-    const htmlCode = body.htmlCode.trim();
-    if (!htmlCode.includes('<html') || !htmlCode.includes('</html>')) {
-      // 如果不是完整的HTML文档，则自动添加基本HTML结构
-      const enhancedHtml = `
+    let htmlContent = body.htmlCode.trim();
+
+    // 如果不是完整的HTML文档，则自动添加基本HTML结构
+    if (!htmlContent.includes('<html') || !htmlContent.includes('</html>')) {
+      htmlContent = `
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -35,21 +36,31 @@ export async function POST(request: NextRequest) {
   <title>HTML预览页面</title>
 </head>
 <body>
-  ${htmlCode}
+  ${htmlContent}
 </body>
 </html>
       `.trim();
-      
-      // 上传增强后的HTML
-      const url = await uploadHtml(enhancedHtml);
-      return NextResponse.json({ url });
     }
 
-    // 上传原始HTML
-    const url = await uploadHtml(htmlCode);
-    
+    // 将HTML内容转换为Buffer
+    const htmlBuffer = Buffer.from(htmlContent, 'utf-8');
+
+    // 上传到COS
+    const result = await uploadFileToCOS(
+      htmlBuffer,
+      'index.html', // 默认文件名
+      'deployed-html' // COS中的文件夹
+    );
+
+    if (!result.success || !result.url) {
+      return NextResponse.json(
+        { error: result.error || '上传到COS失败' },
+        { status: 500 }
+      );
+    }
+
     // 返回部署后的URL
-    return NextResponse.json({ url });
+    return NextResponse.json({ url: result.url });
   } catch (error) {
     console.error('部署HTML失败:', error);
     return NextResponse.json(
