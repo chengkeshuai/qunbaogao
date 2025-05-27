@@ -26,7 +26,7 @@
 ### 1.3 创建存储桶 ✅ 已完成
 - [x] 创建存储桶名称：`qunbaogao-1302957102`
 - [x] 设置访问权限：公有读私有写
-- [x] 获取 API 密钥：`AKIDSingNr9HvZ34wc5NURI2by1udDcrvpX7`
+- [x] 获取 API 密钥：`[YOUR_TENCENT_CLOUD_SECRET_ID]`
 - [x] 配置跨域设置（CORS）：**已完成**
 
 ---
