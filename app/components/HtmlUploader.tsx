@@ -92,12 +92,16 @@ export default function HtmlUploader() {
     setDeployedInfo(null);
 
     try {
-      if (activeTab === 'set' && uploadedFiles.length > 0) {
-        if (uploadedFiles.length === 0) {
-          setError('请至少上传一个HTML文件以创建报告集');
-          setIsUploading(false);
-          return;
+      // Prioritize multi-file upload if multiple files are in state
+      if (uploadedFiles.length > 1) {
+        // Ensure activeTab is 'set' if we are proceeding with multi-file deployment
+        // This is a safeguard, handleFileChange should have already set it.
+        if (activeTab !== 'set') {
+            // This case should ideally not be hit if UI flow is correct
+            // but if it is, let's assume user intent was a set.
+            console.warn("handleSubmit: uploadedFiles.length > 1 but activeTab was not 'set'. Forcing to 'set' flow.");
         }
+
         const requestBody: { files: UploadedFile[]; title?: string; password?: string } = {
           files: uploadedFiles,
         };
@@ -108,7 +112,7 @@ export default function HtmlUploader() {
           requestBody.password = password.trim();
         }
 
-        const response = await fetch('/api/deploy-set', {
+        const response = await fetch('/api/deploy-set', { // New API endpoint for sets
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(requestBody),
@@ -119,9 +123,15 @@ export default function HtmlUploader() {
           throw new Error(errorData.error || '部署报告集失败');
         }
         const data = await response.json();
-        setDeployedInfo({ ...data, isSet: true });
+        setDeployedInfo({ ...data, isSet: true }); // Mark as a set
 
-      } else {
+      } else { // Deploying single file (from paste tab, or single file from upload that got routed to paste tab)
+        if (!htmlCode.trim() && uploadedFiles.length === 1) {
+          // If htmlCode is empty but there was a single uploaded file (which should have populated htmlCode)
+          // This is a fallback, normally htmlCode should be set by handleFileChange for single file.
+          setHtmlCode(uploadedFiles[0].content);
+        }
+        
         if (!htmlCode.trim()) {
           setError('请上传或粘贴HTML代码');
           setIsUploading(false);
@@ -302,7 +312,7 @@ export default function HtmlUploader() {
                   id="setLinkPasswordCheckbox"
                 />
                 <span>
-                  {activeTab === 'set' ? '为此报告集设置密码 (可选)' : '为此链接设置密码 (可选)'}
+                  {activeTab === 'set' ? '为此报告集设置密码' : '为此链接设置密码'}
                 </span>
               </label>
             </div>
@@ -310,7 +320,7 @@ export default function HtmlUploader() {
             {setLinkPassword && (
               <div className="my-4">
                 <label htmlFor="link-password" className="block text-sm font-medium text-gray-700 mb-1">
-                  {activeTab === 'set' ? '设置报告集访问密码 (可选):' : '设置访问密码 (可选):'}
+                  {activeTab === 'set' ? '设置报告集访问密码:' : '设置访问密码:'}
                 </label>
                 <div className="relative">
                   <input 
@@ -369,7 +379,7 @@ export default function HtmlUploader() {
               : '您的网页已成功部署。'}
             {deployedInfo.hasPassword ? 
               (deployedInfo.isSet ? '这是一个受密码保护的报告集链接：' : '这是一个受密码保护的链接：') :
-              (deployedInfo.isSet ? '这是一个公开访问的报告集链接：' : '这是一个公开访问的链接 (通过您的域名提供)：')
+              (deployedInfo.isSet ? '这是一个公开访问的报告集链接：' : '这是一个公开访问的链接：')
             }
           </p>
           <a
@@ -381,7 +391,7 @@ export default function HtmlUploader() {
             {deployedInfo.url}
           </a>
           {!deployedInfo.isSet && !deployedInfo.isPublic && deployedInfo.r2Url && (
-            <p className="mt-2 text-xs text-gray-500">原始R2存储路径 (仅供参考): 
+            <p className="mt-2 text-xs text-gray-500">原始R2存储路径: 
               <a href={deployedInfo.r2Url} target="_blank" rel="noopener noreferrer" className="underline hover:text-gray-700 break-all">{deployedInfo.r2Url}</a>
             </p>
           )}
