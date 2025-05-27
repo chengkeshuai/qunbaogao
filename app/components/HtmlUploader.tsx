@@ -1,121 +1,214 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 // 假设你已经有某种方式引入了 Font Awesome，例如在全局CSS或Layout中
 // import '@fortawesome/fontawesome-free/css/all.min.css'; 
 
+interface UploadedFile {
+  name: string;
+  content: string;
+}
+
 export default function HtmlUploader() {
   const [htmlCode, setHtmlCode] = useState('');
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [isUploading, setIsUploading] = useState(false);
-  const [deployedInfo, setDeployedInfo] = useState<{ url: string; isPublic: boolean; r2Url?: string; hasPassword: boolean } | null>(null);
+  const [deployedInfo, setDeployedInfo] = useState<{ url: string; isPublic?: boolean; r2Url?: string; hasPassword?: boolean; isSet?: boolean; files?: {name: string}[] } | null>(null);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('upload');
-  const [uploadedFileName, setUploadedFileName] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [setLinkPassword, setSetLinkPassword] = useState(false);
   const [password, setPassword] = useState('');
   const [showUploaderPassword, setShowUploaderPassword] = useState(true);
+  const [reportSetTitle, setReportSetTitle] = useState('');
 
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setHtmlCode(e.target.value);
+    setUploadedFiles([]);
     setError('');
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      setHtmlCode(event.target?.result as string);
-      setUploadedFileName(file.name);
-      setActiveTab('paste');
-      setError('');
-    };
-    reader.readAsText(file);
+    setIsUploading(true);
+    setError('');
+    setDeployedInfo(null);
+    setHtmlCode('');
+
+    const newUploadedFiles: UploadedFile[] = [];
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (file.type !== 'text/html' && !file.name.endsWith('.html') && !file.name.endsWith('.htm')) {
+            console.warn(`Skipping non-HTML file: ${file.name}`);
+            continue;
+        }
+        const content = await readFileAsText(file);
+        newUploadedFiles.push({ name: file.name, content });
+      }
+
+      if (newUploadedFiles.length === 0 && files.length > 0) {
+        setError('未选择有效的 HTML 文件。');
+        setUploadedFiles([]);
+        setIsUploading(false);
+        return;
+      }
+      
+      setUploadedFiles(newUploadedFiles);
+
+      if (newUploadedFiles.length > 1) {
+        setActiveTab('set');
+      } else if (newUploadedFiles.length === 1) {
+        setHtmlCode(newUploadedFiles[0].content);
+        setActiveTab('paste');
+      }
+    } catch (err) {
+      setError('读取文件时出错: ' + (err as Error).message);
+      setUploadedFiles([]);
+    } finally {
+      setIsUploading(false);
+    }
+    if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+    }
+  }, []);
+
+  const readFileAsText = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (event) => resolve(event.target?.result as string);
+      reader.onerror = (error) => reject(error);
+      reader.readAsText(file);
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!htmlCode.trim()) {
-      setError('请上传或粘贴HTML代码');
-      return;
-    }
+    setIsUploading(true);
+    setError('');
+    setDeployedInfo(null);
 
     try {
-      setIsUploading(true);
-      setError('');
-      setDeployedInfo(null);
+      if (activeTab === 'set' && uploadedFiles.length > 0) {
+        if (uploadedFiles.length === 0) {
+          setError('请至少上传一个HTML文件以创建报告集');
+          setIsUploading(false);
+          return;
+        }
+        const requestBody: { files: UploadedFile[]; title?: string; password?: string } = {
+          files: uploadedFiles,
+        };
+        if (reportSetTitle.trim()) {
+          requestBody.title = reportSetTitle.trim();
+        }
+        if (setLinkPassword && password.trim().length > 0) {
+          requestBody.password = password.trim();
+        }
 
-      const requestBody: { htmlCode: string; password?: string } = {
-        htmlCode,
-      };
+        const response = await fetch('/api/deploy-set', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestBody),
+        });
 
-      if (setLinkPassword && password.trim().length > 0) {
-        requestBody.password = password.trim();
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ message: '部署报告集失败，无法解析错误信息' }));
+          throw new Error(errorData.error || '部署报告集失败');
+        }
+        const data = await response.json();
+        setDeployedInfo({ ...data, isSet: true });
+
+      } else {
+        if (!htmlCode.trim()) {
+          setError('请上传或粘贴HTML代码');
+          setIsUploading(false);
+          return;
+        }
+        const requestBody: { htmlCode: string; password?: string } = { htmlCode };
+        if (setLinkPassword && password.trim().length > 0) {
+          requestBody.password = password.trim();
+        }
+
+        const response = await fetch('/api/deploy', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestBody),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ message: '部署失败，无法解析错误信息' }));
+          throw new Error(errorData.error || '部署失败');
+        }
+        const data = await response.json();
+        setDeployedInfo({ ...data, isSet: false });
       }
-
-      const response = await fetch('/api/deploy', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: '部署失败，无法解析错误信息' }));
-        throw new Error(errorData.error || '部署失败');
-      }
-
-      const data = await response.json();
-      setDeployedInfo(data);
     } catch (err) {
       setError((err as Error).message || '上传过程中发生错误');
     } finally {
       setIsUploading(false);
     }
   };
+  
+  const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+  }, []);
+
+  const handleDrop = useCallback(async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const files = e.dataTransfer.files;
+    if (!files || files.length === 0) return;
+
+    if (fileInputRef.current) {
+        fileInputRef.current.files = files;
+        const event = new Event('change', { bubbles: true });
+        fileInputRef.current.dispatchEvent(event);
+    }
+  }, [handleFileChange]);
+
 
   return (
     <div className="w-full max-w-3xl mx-auto">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="flex rounded-md overflow-hidden">
-          <button
-            type="button"
-            onClick={() => setActiveTab('upload')}
-            className={`flex-1 py-3 px-4 text-center transition-colors font-semibold text-base md:text-lg rounded-tl-md rounded-bl-md ${
-              activeTab === 'upload'
-                ? 'bg-[#2dc100] text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-300'
-            }`}
-          >
-            上传
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('paste')}
-            className={`flex-1 py-3 px-4 text-center transition-colors font-semibold text-base md:text-lg rounded-tr-md rounded-br-md ${
-              activeTab === 'paste'
-                ? 'bg-[#2dc100] text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border-t border-r border-b border-gray-300'
-            }`}
-          >
-            粘贴代码
-          </button>
-        </div>
+      <div className="flex rounded-md overflow-hidden mb-4">
+        <button
+          type="button"
+          onClick={() => { setActiveTab('upload'); setUploadedFiles([]); setHtmlCode(''); setReportSetTitle(''); setError(''); setDeployedInfo(null); }}
+          className={`flex-1 py-3 px-4 text-center transition-colors font-semibold text-base md:text-lg rounded-tl-md rounded-bl-md ${
+            activeTab === 'upload' || activeTab === 'set'
+              ? 'bg-[#2dc100] text-white'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-300'
+          }`}
+        >
+          {activeTab === 'set' && uploadedFiles.length > 1 ? '编辑报告集文件' : '上传 (单个或多个文件)'}
+        </button>
+        <button
+          type="button"
+          onClick={() => { setActiveTab('paste'); setUploadedFiles([]); setReportSetTitle(''); setError(''); setDeployedInfo(null); }}
+          className={`flex-1 py-3 px-4 text-center transition-colors font-semibold text-base md:text-lg rounded-tr-md rounded-br-md ${
+            activeTab === 'paste'
+              ? 'bg-[#2dc100] text-white'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border-t border-r border-b border-gray-300'
+          }`}
+        >
+          粘贴单个代码
+        </button>
+      </div>
 
-        {activeTab === 'upload' && (
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {(activeTab === 'upload' || activeTab === 'set') && (
           <div 
-            className="w-full h-64 border border-gray-300 rounded-lg bg-white flex flex-col items-center justify-center cursor-pointer hover:border-[#2dc100] transition-colors"
+            className="w-full min-h-64 border border-gray-300 rounded-lg bg-white flex flex-col items-center justify-center cursor-pointer hover:border-[#2dc100] transition-colors p-6"
             onClick={() => fileInputRef.current?.click()}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-[#2dc100] mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-[#2dc100] mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
             </svg>
             <p className="text-lg font-medium text-gray-700">拖放您的HTML文件到此处</p>
-            <p className="text-sm text-gray-500 mt-1 mb-4">或点击选择文件</p>
+            <p className="text-sm text-gray-500 mt-1 mb-3">或点击选择文件 (可多选)</p>
             <button
               type="button"
               className="px-4 py-2 bg-[#2dc100] text-white rounded-lg hover:bg-[#249c00] focus:outline-none"
@@ -130,20 +223,39 @@ export default function HtmlUploader() {
               ref={fileInputRef}
               type="file"
               accept=".html,.htm"
+              multiple
               onChange={handleFileChange}
               className="hidden"
             />
+            {uploadedFiles.length > 0 && (activeTab === 'upload' || activeTab === 'set') && (
+              <div className="mt-4 w-full">
+                <h4 className="font-semibold text-gray-700 mb-2">
+                  已选择 {uploadedFiles.length} 个文件:
+                  {uploadedFiles.length > 1 && activeTab === 'upload' && (
+                    <button type="button" onClick={() => setActiveTab('set')} className="ml-2 text-sm text-[#2dc100] hover:underline">(配置报告集)</button>
+                  )}
+                </h4>
+                <ul className="list-disc list-inside bg-gray-50 p-3 rounded-md max-h-40 overflow-y-auto">
+                  {uploadedFiles.map((file, index) => (
+                    <li key={index} className="text-sm text-gray-600 truncate">{file.name}</li>
+                  ))}
+                </ul>
+                 {uploadedFiles.length === 1 && activeTab === 'upload' && (
+                     <p className="text-xs text-gray-500 mt-1">选择单个文件将使用"粘贴单个代码"的方式部署。如需创建报告集，请至少选择两个文件，或在选择一个文件后点击上面的"(配置报告集)"链接。</p>
+                 )}
+              </div>
+            )}
           </div>
         )}
         
         {activeTab === 'paste' && (
           <div className="space-y-2">
-            {uploadedFileName && (
+            {uploadedFiles.length === 1 && (
               <div className="flex items-center bg-[#e6f9e6] text-[#2dc100] p-2 rounded-lg mb-2">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                 </svg>
-                <span>已成功上传文件：{uploadedFileName}</span>
+                <span>已加载文件内容：{uploadedFiles[0].name}</span>
               </div>
             )}
             <textarea
@@ -155,61 +267,87 @@ export default function HtmlUploader() {
           </div>
         )}
 
-        <div className="my-4">
-          <label className="flex items-center space-x-2 text-sm text-gray-700 cursor-pointer">
-            <input 
-              type="checkbox" 
-              checked={setLinkPassword}
-              onChange={(e) => {
-                setSetLinkPassword(e.target.checked);
-                if (!e.target.checked) {
-                  setPassword('');
-                }
-              }}
-              className="form-checkbox h-4 w-4 text-[#2dc100] rounded border-gray-300 focus:ring-[#2dc100]/50 focus:ring-offset-0 focus:ring-1"
-              id="setLinkPasswordCheckbox"
-            />
-            <span>为此链接设置密码 (可选)</span>
-          </label>
-        </div>
-
-        {setLinkPassword && (
-          <div className="my-4">
-            <label htmlFor="link-password" className="block text-sm font-medium text-gray-700 mb-1">
-              设置访问密码 (可选):
+        {activeTab === 'set' && uploadedFiles.length > 0 && (
+          <div className="my-4 p-4 border border-dashed border-gray-300 rounded-lg bg-gray-50">
+            <h3 className="text-lg font-semibold text-gray-800 mb-3">报告集设置</h3>
+            <label htmlFor="report-set-title" className="block text-sm font-medium text-gray-700 mb-1">
+              报告集标题 (可选):
             </label>
-            <div className="relative">
-              <input 
-                type={showUploaderPassword ? 'text' : 'password'}
-                id="link-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="留空则不设密码"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2dc100] focus:border-transparent focus:outline-none text-sm pr-10"
-              />
-              <button 
-                type="button"
-                onClick={() => setShowUploaderPassword(!showUploaderPassword)}
-                className="absolute inset-y-0 right-0 px-3 flex items-center text-sm text-gray-500 hover:text-gray-700 focus:outline-none"
-                aria-label={showUploaderPassword ? "隐藏密码" : "显示密码"}
-              >
-                {showUploaderPassword ? (
-                  <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a9.97 9.97 0 01-1.563 3.029m0 0l3.291 3.291M3 3l18 18" /></svg>
-                ) : (
-                  <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                )}
-              </button>
-            </div>
+            <input
+              type="text"
+              id="report-set-title"
+              value={reportSetTitle}
+              onChange={(e) => setReportSetTitle(e.target.value)}
+              placeholder="例如：五月第一周日报"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2dc100] focus:border-transparent focus:outline-none text-sm"
+            />
+             <p className="text-xs text-gray-500 mt-1">已选择 {uploadedFiles.length} 个文件将包含在此报告集中。</p>
           </div>
+        )}
+        
+        {(htmlCode.trim() || uploadedFiles.length > 0) && (
+          <>
+            <div className="my-4">
+              <label className="flex items-center space-x-2 text-sm text-gray-700 cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  checked={setLinkPassword}
+                  onChange={(e) => {
+                    setSetLinkPassword(e.target.checked);
+                    if (!e.target.checked) {
+                      setPassword('');
+                    }
+                  }}
+                  className="form-checkbox h-4 w-4 text-[#2dc100] rounded border-gray-300 focus:ring-[#2dc100]/50 focus:ring-offset-0 focus:ring-1"
+                  id="setLinkPasswordCheckbox"
+                />
+                <span>
+                  {activeTab === 'set' ? '为此报告集设置密码 (可选)' : '为此链接设置密码 (可选)'}
+                </span>
+              </label>
+            </div>
+
+            {setLinkPassword && (
+              <div className="my-4">
+                <label htmlFor="link-password" className="block text-sm font-medium text-gray-700 mb-1">
+                  {activeTab === 'set' ? '设置报告集访问密码 (可选):' : '设置访问密码 (可选):'}
+                </label>
+                <div className="relative">
+                  <input 
+                    type={showUploaderPassword ? 'text' : 'password'}
+                    id="link-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="留空则不设密码"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2dc100] focus:border-transparent focus:outline-none text-sm pr-10"
+                  />
+                  <button 
+                    type="button"
+                    onClick={() => setShowUploaderPassword(!showUploaderPassword)}
+                    className="absolute inset-y-0 right-0 px-3 flex items-center text-sm text-gray-500 hover:text-gray-700 focus:outline-none"
+                    aria-label={showUploaderPassword ? "隐藏密码" : "显示密码"}
+                  >
+                    {showUploaderPassword ? (
+                      <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a9.97 9.97 0 01-1.563 3.029m0 0l3.291 3.291M3 3l18 18" /></svg>
+                    ) : (
+                      <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         <div className="flex justify-end">
           <button
             type="submit"
-            disabled={isUploading}
+            disabled={isUploading || (activeTab !== 'paste' && uploadedFiles.length === 0) || (activeTab === 'paste' && !htmlCode.trim())}
             className="px-4 py-2 bg-[#2dc100] text-white rounded-lg hover:bg-[#249c00] focus:outline-none focus:ring-2 focus:ring-[#2dc100] disabled:opacity-50"
           >
-            {isUploading ? '正在部署...' : '部署网页'}
+            {isUploading 
+              ? '正在部署...' 
+              : (activeTab === 'set' ? '创建报告集' : '部署网页')}
           </button>
         </div>
       </form>
@@ -222,12 +360,16 @@ export default function HtmlUploader() {
 
       {deployedInfo && (
         <div className="mt-6 p-4 bg-[#e6f9e6] border border-[#2dc100]/30 rounded-lg">
-          <h3 className="text-lg font-medium text-[#2dc100] mb-2">部署成功！</h3>
+          <h3 className="text-lg font-medium text-[#2dc100] mb-2">
+            {deployedInfo.isSet ? '报告集创建成功！' : '部署成功！'}
+          </h3>
           <p className="mb-2 text-[#238a00]">
-            您的网页已成功部署。
+            {deployedInfo.isSet 
+              ? `您的报告集包含 ${deployedInfo.files?.length || 0} 个文件，已成功创建。`
+              : '您的网页已成功部署。'}
             {deployedInfo.hasPassword ? 
-              '这是一个受密码保护的链接：' : 
-              '这是一个公开访问的链接 (通过您的域名提供)：'
+              (deployedInfo.isSet ? '这是一个受密码保护的报告集链接：' : '这是一个受密码保护的链接：') :
+              (deployedInfo.isSet ? '这是一个公开访问的报告集链接：' : '这是一个公开访问的链接 (通过您的域名提供)：')
             }
           </p>
           <a
@@ -238,7 +380,7 @@ export default function HtmlUploader() {
           >
             {deployedInfo.url}
           </a>
-          {!deployedInfo.isPublic && deployedInfo.r2Url && (
+          {!deployedInfo.isSet && !deployedInfo.isPublic && deployedInfo.r2Url && (
             <p className="mt-2 text-xs text-gray-500">原始R2存储路径 (仅供参考): 
               <a href={deployedInfo.r2Url} target="_blank" rel="noopener noreferrer" className="underline hover:text-gray-700 break-all">{deployedInfo.r2Url}</a>
             </p>
@@ -250,7 +392,7 @@ export default function HtmlUploader() {
               rel="noopener noreferrer"
               className="px-4 py-2 bg-[#2dc100] text-white rounded-lg hover:bg-[#249c00]"
             >
-              访问网页
+              {deployedInfo.isSet ? '访问报告集' : '访问网页'}
             </a>
             <button
               onClick={() => {

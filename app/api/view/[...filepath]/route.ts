@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
-import { R2_BUCKET_NAME, R2_PUBLIC_URL, getObjectMetadata } from '@/app/lib/r2'; // 假设r2.ts导出了这些
-import crypto from 'crypto'; // Import crypto for hashing
+import { R2_BUCKET_NAME, getObjectMetadata } from '@/app/lib/r2'; // R2_PUBLIC_URL no longer used directly here
+import crypto from 'crypto';
 
 const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID;
 const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID;
@@ -9,7 +9,6 @@ const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY;
 
 if (!R2_ACCOUNT_ID || !R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY || !R2_BUCKET_NAME) {
   console.error("Cloudflare R2 environment variables are not fully set for view route.");
-  // 不在此处抛出错误，以便在构建时通过，但在运行时会失败
 }
 
 const S3 = new S3Client({
@@ -22,23 +21,31 @@ const S3 = new S3Client({
 });
 
 // Helper function to generate password prompt HTML
-function getPasswordPromptHTML(filename: string, error?: string): string {
+// The form action now needs to construct the full path if it contains slashes
+function getPasswordPromptHTML(filepathForFormAction: string, error?: string): string {
   const WECHAT_GREEN = '#2dc100';
-  const WECHAT_GREEN_HOVER = '#249c00'; // Hover color like main page button
+  const WECHAT_GREEN_HOVER = '#249c00';
+  // Ensure filepathForFormAction is properly encoded for URL path and query param if needed
+  // The form action itself should point to the current full path.
+  // The filename for display can be the last part of the path.
+  const displayFilename = filepathForFormAction.split('/').pop() || filepathForFormAction;
+
   return `
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>请输入密码</title>
+  <title>请输入密码 - ${displayFilename}</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-100 flex items-center justify-center h-screen">
   <div class="bg-white p-8 rounded-lg shadow-md w-full max-w-sm">
     <h1 class="text-2xl font-semibold mb-4 text-center text-gray-700">受保护的内容</h1>
+    <p class="text-gray-600 mb-2 text-center">文件: ${displayFilename}</p>
     <p class="text-gray-600 mb-6 text-center">此内容需要密码才能访问。</p>
-    <form method="GET" action="/api/view/${filename}" class="space-y-4">
+    {/* Form action should be the current path of the request */}
+    <form method="GET" action="" class="space-y-4"> 
       <div>
         <label for="passwordInput" class="block text-sm font-medium text-gray-700">密码:</label>
         <div class="relative mt-1">
@@ -81,51 +88,58 @@ function getPasswordPromptHTML(filename: string, error?: string): string {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { filename: string } }
+  { params }: { params: { filepath: string[] } } // Changed from filename: string to filepath: string[]
 ) {
-  const filename = params.filename;
-
-  if (!filename) {
-    return new NextResponse('Filename is required', { status: 400 });
+  const filepathParts = params.filepath;
+  if (!filepathParts || filepathParts.length === 0) {
+    return new NextResponse('Filepath is required', { status: 400 });
   }
+  // Join the parts to form the full R2 key, which might include slashes for nested paths
+  const r2Key = filepathParts.join('/');
 
-  // 确保环境变量已加载
+  // Ensure R2 environment variables are loaded
   if (!R2_BUCKET_NAME || !S3.config.credentials) {
     console.error('R2 configuration is missing in GET /api/view');
     return new NextResponse('Server configuration error', { status: 500 });
   }
 
-  const r2Key = `deployed-html/${filename}`;
-
   try {
-    const metadata = await getObjectMetadata(r2Key);
+    // The r2Key used for getObjectMetadata should NOT include the "deployed-html/" prefix
+    // if your uploadToR2 and other functions already handle this prefix internally.
+    // Let's assume getObjectMetadata expects the key *as it is in the bucket*.
+    // And the files in report sets are stored under `report_sets/[setId]/...` directly.
+    // Files from single deploy are under `deployed-html/[filename]`. 
+    // The r2Key constructed from filepathParts will be the actual key in the bucket.
+    const metadata = await getObjectMetadata(r2Key); 
     const passwordHash = metadata?.['password-hash'];
 
     if (passwordHash) {
       const url = new URL(request.url);
       const providedPassword = url.searchParams.get('password');
+      
+      // Construct the path for the form action correctly
+      // This is the path part of the URL, e.g., /api/view/report_sets/set_id/file.html
+      const formActionPath = `/api/view/${r2Key}`;
 
       if (!providedPassword) {
-        return new NextResponse(getPasswordPromptHTML(filename), { 
-          status: 200, // Serve the prompt page with 200 to allow form submission GET
+        return new NextResponse(getPasswordPromptHTML(r2Key, undefined), { 
+          status: 200, 
           headers: { 'Content-Type': 'text/html; charset=utf-8' }
         });
       }
 
       const providedPasswordHash = crypto.createHash('sha256').update(providedPassword).digest('hex');
       if (providedPasswordHash !== passwordHash) {
-        return new NextResponse(getPasswordPromptHTML(filename, '密码错误，请重试。'), { 
-          status: 200, // Serve the prompt page with error, status 200
+        return new NextResponse(getPasswordPromptHTML(r2Key, '密码错误，请重试。'), { 
+          status: 200, 
           headers: { 'Content-Type': 'text/html; charset=utf-8' }
         });
       }
-      // If password matches, proceed to fetch and return the object content
     }
 
-    // Fetch and return object if no password or if password matched
     const getObjectCommand = new GetObjectCommand({
       Bucket: R2_BUCKET_NAME,
-      Key: r2Key,
+      Key: r2Key, // Use the full r2Key directly
     });
 
     const { Body, ContentType } = await S3.send(getObjectCommand);
@@ -134,10 +148,8 @@ export async function GET(
       return new NextResponse('File not found or empty', { status: 404 });
     }
 
-    // 将 ReadableStream 转换为 Buffer/string
-    // @ts-ignore
     const chunks = [];
-    // @ts-ignore
+    // @ts-ignore ReadableStream can be iterated over
     for await (const chunk of Body) {
       chunks.push(chunk);
     }
@@ -152,7 +164,7 @@ export async function GET(
     });
 
   } catch (error: any) {
-    console.error(`Error fetching ${filename} from R2:`, error);
+    console.error(`Error fetching ${r2Key} from R2:`, error);
     if (error.name === 'NoSuchKey') {
       return new NextResponse('File not found', { status: 404 });
     }
