@@ -9,12 +9,12 @@ export default function HtmlUploader() {
   const [isUploading, setIsUploading] = useState(false);
   const [deployedInfo, setDeployedInfo] = useState<{ url: string; isPublic: boolean; r2Url?: string; hasPassword: boolean } | null>(null);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState('upload'); // 3. Default tab to 'upload'
+  const [activeTab, setActiveTab] = useState('upload');
   const [uploadedFileName, setUploadedFileName] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isPrivateLink, setIsPrivateLink] = useState(false);
   const [password, setPassword] = useState('');
-  const [showUploaderPassword, setShowUploaderPassword] = useState(false); // 4. State for password visibility
+  const [showUploaderPassword, setShowUploaderPassword] = useState(false);
 
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setHtmlCode(e.target.value);
@@ -29,7 +29,7 @@ export default function HtmlUploader() {
     reader.onload = (event) => {
       setHtmlCode(event.target?.result as string);
       setUploadedFileName(file.name);
-      setActiveTab('paste'); // 切换到粘贴模式显示内容
+      setActiveTab('paste');
       setError('');
     };
     reader.readAsText(file);
@@ -46,7 +46,7 @@ export default function HtmlUploader() {
     try {
       setIsUploading(true);
       setError('');
-      setDeployedInfo(null); // Reset previous deployment info
+      setDeployedInfo(null);
 
       const requestBody: { htmlCode: string; isPrivate: boolean; password?: string } = {
         htmlCode,
@@ -62,7 +62,7 @@ export default function HtmlUploader() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(requestBody), // Send updated request body
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
@@ -71,7 +71,7 @@ export default function HtmlUploader() {
       }
 
       const data = await response.json();
-      setDeployedInfo(data); // Store the full deployment info
+      setDeployedInfo(data);
     } catch (err) {
       setError((err as Error).message || '上传过程中发生错误');
     } finally {
@@ -82,33 +82,31 @@ export default function HtmlUploader() {
   return (
     <div className="w-full max-w-3xl mx-auto">
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* 选项卡按钮 */}
         <div className="flex rounded-md overflow-hidden">
           <button
             type="button"
-            onClick={() => setActiveTab('upload')} // 2. Tab font styles
-            className={`flex-1 py-3 px-4 text-center transition-colors font-semibold text-base md:text-lg ${ 
+            onClick={() => setActiveTab('upload')}
+            className={`flex-1 py-3 px-4 text-center transition-colors font-semibold text-base md:text-lg ${
               activeTab === 'upload'
                 ? 'bg-[#2dc100] text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                : 'bg-gray-50 text-gray-500 hover:bg-gray-100 border border-gray-200'
             }`}
           >
             上传
           </button>
           <button
             type="button"
-            onClick={() => setActiveTab('paste')} // 2. Tab font styles
-            className={`flex-1 py-3 px-4 text-center transition-colors font-semibold text-base md:text-lg ${ 
+            onClick={() => setActiveTab('paste')}
+            className={`flex-1 py-3 px-4 text-center transition-colors font-semibold text-base md:text-lg ${
               activeTab === 'paste'
                 ? 'bg-[#2dc100] text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                : 'bg-gray-50 text-gray-500 hover:bg-gray-100 border border-gray-200'
             }`}
           >
             粘贴代码
           </button>
         </div>
 
-        {/* 上传模式 */}
         {activeTab === 'upload' && (
           <div 
             className="w-full h-64 border border-gray-300 rounded-lg bg-white flex flex-col items-center justify-center cursor-pointer hover:border-[#2dc100] transition-colors"
@@ -123,7 +121,7 @@ export default function HtmlUploader() {
               type="button"
               className="px-4 py-2 bg-[#2dc100] text-white rounded-lg hover:bg-[#249c00] focus:outline-none"
               onClick={(e) => {
-                e.stopPropagation(); // 防止事件冒泡
+                e.stopPropagation();
                 fileInputRef.current?.click();
               }}
             >
@@ -139,7 +137,6 @@ export default function HtmlUploader() {
           </div>
         )}
         
-        {/* 粘贴模式 */}
         {activeTab === 'paste' && (
           <div className="space-y-2">
             {uploadedFileName && (
@@ -151,7 +148,7 @@ export default function HtmlUploader() {
               </div>
             )}
             <textarea
-              className="w-full h-64 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2dc100] focus:border-transparent"
+              className="w-full h-64 p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#2dc100] focus:border-transparent"
               placeholder="在此粘贴您的HTML代码..."
               value={htmlCode}
               onChange={handleTextChange}
@@ -159,30 +156,22 @@ export default function HtmlUploader() {
           </div>
         )}
 
-        {/* Private link checkbox - Item 1 */}
         <div className="my-4">
-          <label className="flex items-center space-x-2 text-sm text-gray-700 cursor-pointer" onClick={() => setIsPrivateLink(!isPrivateLink)}>
+          <label className="flex items-center space-x-2 text-sm text-gray-700 cursor-pointer">
             <input 
               type="checkbox" 
               checked={isPrivateLink}
-              onChange={(e) => setIsPrivateLink(e.target.checked)} // Keep this for accessibility & non-JS fallback if needed, but hide it
-              className="sr-only" // Hide the actual checkbox but keep its state management
+              onChange={(e) => setIsPrivateLink(e.target.checked)}
+              className="sr-only peer"
+              id="privateLinkCheckbox"
             />
-            <span className="w-5 h-5 flex items-center justify-center border-2 rounded border-gray-300">
-              {isPrivateLink ? (
-                <svg className="w-4 h-4 text-[#2dc100]" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"></path></svg>
-                // Or using FontAwesome if preferred and setup:
-                // <i className="fas fa-check text-[#2dc100]"></i> 
-              ) : (
-                <span className="w-4 h-4"></span> // Empty span for unchecked state, or a FontAwesome square icon
-                // <i className="far fa-square text-gray-400"></i>
-              )}
+            <span className="w-5 h-5 flex items-center justify-center border-2 rounded border-gray-300 peer-checked:border-[#2dc100] peer-focus:ring-2 peer-focus:ring-offset-1 peer-focus:ring-[#2dc100]/50">
+              <svg className={`w-3.5 h-3.5 text-[#2dc100] ${isPrivateLink ? 'opacity-100' : 'opacity-0'}`} fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"></path></svg>
             </span>
             <span>生成私有链接</span>
           </label>
         </div>
 
-        {/* Password input, shown if isPrivateLink is true - Item 4 */}
         {isPrivateLink && (
           <div className="my-4">
             <label htmlFor="link-password" className="block text-sm font-medium text-gray-700 mb-1">
@@ -203,7 +192,6 @@ export default function HtmlUploader() {
                 className="absolute inset-y-0 right-0 px-3 flex items-center text-sm text-gray-500 hover:text-gray-700"
                 aria-label={showUploaderPassword ? "隐藏密码" : "显示密码"}
               >
-                {/* Basic eye icon, replace with FontAwesome if desired */}
                 {showUploaderPassword ? (
                   <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a9.97 9.97 0 01-1.563 3.029m0 0l3.291 3.291M3 3l18 18" /></svg>
                 ) : (
@@ -242,7 +230,7 @@ export default function HtmlUploader() {
             }
           </p>
           <a
-            href={deployedInfo.url} // Use the main URL from deployedInfo
+            href={deployedInfo.url}
             target="_blank"
             rel="noopener noreferrer"
             className="block w-full p-3 bg-white border border-[#2dc100]/30 rounded-lg text-[#2dc100] hover:underline text-center break-all"
@@ -256,7 +244,7 @@ export default function HtmlUploader() {
           )}
           <div className="mt-4 flex gap-4 justify-center">
             <a
-              href={deployedInfo.url} // Use the main URL
+              href={deployedInfo.url}
               target="_blank"
               rel="noopener noreferrer"
               className="px-4 py-2 bg-[#2dc100] text-white rounded-lg hover:bg-[#249c00]"
@@ -267,7 +255,7 @@ export default function HtmlUploader() {
               onClick={() => {
                 let urlToCopy = deployedInfo.url;
                 if (!deployedInfo.isPublic && !urlToCopy.startsWith('http')) {
-                  urlToCopy = window.location.origin + urlToCopy; // 5. Fix copy link for relative private URLs
+                  urlToCopy = window.location.origin + urlToCopy;
                 }
                 navigator.clipboard.writeText(urlToCopy);
                 alert('链接已复制到剪贴板');
