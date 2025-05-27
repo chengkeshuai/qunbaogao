@@ -14,7 +14,7 @@ export default function HtmlUploader() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isPrivateLink, setIsPrivateLink] = useState(false);
   const [password, setPassword] = useState('');
-  const [showUploaderPassword, setShowUploaderPassword] = useState(false);
+  const [showUploaderPassword, setShowUploaderPassword] = useState(true);
 
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setHtmlCode(e.target.value);
@@ -86,10 +86,10 @@ export default function HtmlUploader() {
           <button
             type="button"
             onClick={() => setActiveTab('upload')}
-            className={`flex-1 py-3 px-4 text-center transition-colors font-semibold text-base md:text-lg ${
+            className={`flex-1 py-3 px-4 text-center transition-colors font-semibold text-base md:text-lg rounded-tl-md rounded-bl-md ${
               activeTab === 'upload'
                 ? 'bg-[#2dc100] text-white'
-                : 'bg-gray-50 text-gray-500 hover:bg-gray-100 border border-gray-200'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-300'
             }`}
           >
             上传
@@ -97,10 +97,10 @@ export default function HtmlUploader() {
           <button
             type="button"
             onClick={() => setActiveTab('paste')}
-            className={`flex-1 py-3 px-4 text-center transition-colors font-semibold text-base md:text-lg ${
+            className={`flex-1 py-3 px-4 text-center transition-colors font-semibold text-base md:text-lg rounded-tr-md rounded-br-md ${
               activeTab === 'paste'
                 ? 'bg-[#2dc100] text-white'
-                : 'bg-gray-50 text-gray-500 hover:bg-gray-100 border border-gray-200'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border-t border-r border-b border-gray-300'
             }`}
           >
             粘贴代码
@@ -148,7 +148,7 @@ export default function HtmlUploader() {
               </div>
             )}
             <textarea
-              className="w-full h-64 p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#2dc100] focus:border-transparent"
+              className="w-full h-64 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2dc100] focus:border-transparent focus:outline-none"
               placeholder="在此粘贴您的HTML代码..."
               value={htmlCode}
               onChange={handleTextChange}
@@ -162,12 +162,9 @@ export default function HtmlUploader() {
               type="checkbox" 
               checked={isPrivateLink}
               onChange={(e) => setIsPrivateLink(e.target.checked)}
-              className="sr-only peer"
+              className="form-checkbox h-4 w-4 text-[#2dc100] rounded border-gray-300 focus:ring-[#2dc100]/50 focus:ring-offset-0 focus:ring-1"
               id="privateLinkCheckbox"
             />
-            <span className="w-5 h-5 flex items-center justify-center border-2 rounded border-gray-300 peer-checked:border-[#2dc100] peer-focus:ring-2 peer-focus:ring-offset-1 peer-focus:ring-[#2dc100]/50">
-              <svg className={`w-3.5 h-3.5 text-[#2dc100] ${isPrivateLink ? 'opacity-100' : 'opacity-0'}`} fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"></path></svg>
-            </span>
             <span>生成私有链接</span>
           </label>
         </div>
@@ -184,12 +181,12 @@ export default function HtmlUploader() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="留空则不设密码"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2dc100] focus:border-transparent text-sm pr-10"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2dc100] focus:border-transparent focus:outline-none text-sm pr-10"
               />
               <button 
                 type="button"
                 onClick={() => setShowUploaderPassword(!showUploaderPassword)}
-                className="absolute inset-y-0 right-0 px-3 flex items-center text-sm text-gray-500 hover:text-gray-700"
+                className="absolute inset-y-0 right-0 px-3 flex items-center text-sm text-gray-500 hover:text-gray-700 focus:outline-none"
                 aria-label={showUploaderPassword ? "隐藏密码" : "显示密码"}
               >
                 {showUploaderPassword ? (
