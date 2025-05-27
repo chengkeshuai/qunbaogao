@@ -5,11 +5,13 @@ import { useState, useRef } from 'react';
 export default function HtmlUploader() {
   const [htmlCode, setHtmlCode] = useState('');
   const [isUploading, setIsUploading] = useState(false);
-  const [deployedUrl, setDeployedUrl] = useState('');
+  const [deployedInfo, setDeployedInfo] = useState<{ url: string; isPublic: boolean; r2Url?: string; hasPassword: boolean } | null>(null);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('paste'); // 'upload' 或 'paste'
   const [uploadedFileName, setUploadedFileName] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isPrivateLink, setIsPrivateLink] = useState(false); // New state for private link
+  const [password, setPassword] = useState(''); // New state for password input
 
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setHtmlCode(e.target.value);
@@ -41,21 +43,32 @@ export default function HtmlUploader() {
     try {
       setIsUploading(true);
       setError('');
+      setDeployedInfo(null); // Reset previous deployment info
+
+      const requestBody: { htmlCode: string; isPrivate: boolean; password?: string } = {
+        htmlCode,
+        isPrivate: isPrivateLink,
+      };
+
+      if (isPrivateLink && password.trim().length > 0) {
+        requestBody.password = password.trim();
+      }
 
       const response = await fetch('/api/deploy', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ htmlCode }),
+        body: JSON.stringify(requestBody), // Send updated request body
       });
 
       if (!response.ok) {
-        throw new Error('部署失败');
+        const errorData = await response.json().catch(() => ({ message: '部署失败，无法解析错误信息' }));
+        throw new Error(errorData.error || '部署失败');
       }
 
       const data = await response.json();
-      setDeployedUrl(data.url);
+      setDeployedInfo(data); // Store the full deployment info
     } catch (err) {
       setError((err as Error).message || '上传过程中发生错误');
     } finally {
@@ -143,6 +156,36 @@ export default function HtmlUploader() {
           </div>
         )}
 
+        {/* Private link checkbox */}
+        <div className="my-4">
+          <label className="flex items-center space-x-2 text-sm text-gray-700 cursor-pointer">
+            <input 
+              type="checkbox" 
+              checked={isPrivateLink}
+              onChange={(e) => setIsPrivateLink(e.target.checked)}
+              className="form-checkbox h-4 w-4 text-[#2dc100] rounded border-gray-300 focus:ring-[#2dc100]"
+            />
+            <span>生成私有链接</span>
+          </label>
+        </div>
+
+        {/* Password input, shown if isPrivateLink is true */}
+        {isPrivateLink && (
+          <div className="my-4">
+            <label htmlFor="link-password" className="block text-sm font-medium text-gray-700 mb-1">
+              设置访问密码 (可选):
+            </label>
+            <input 
+              type="password"
+              id="link-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="留空则不设密码"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2dc100] focus:border-transparent text-sm"
+            />
+          </div>
+        )}
+
         <div className="flex justify-end">
           <button
             type="submit"
@@ -160,21 +203,32 @@ export default function HtmlUploader() {
         </div>
       )}
 
-      {deployedUrl && (
+      {deployedInfo && (
         <div className="mt-6 p-4 bg-[#e6f9e6] border border-[#2dc100]/30 rounded-lg">
           <h3 className="text-lg font-medium text-[#2dc100] mb-2">部署成功！</h3>
-          <p className="mb-2 text-[#238a00]">您的网页已成功部署，可通过以下链接访问：</p>
+          <p className="mb-2 text-[#238a00]">
+            您的网页已成功部署。
+            {deployedInfo.isPublic ? 
+              '可通过以下公开链接访问：' : 
+              `这是一个私有链接${deployedInfo.hasPassword ? ' (已设置密码)' : ' (未设置密码)'}：`
+            }
+          </p>
           <a
-            href={deployedUrl}
+            href={deployedInfo.url} // Use the main URL from deployedInfo
             target="_blank"
             rel="noopener noreferrer"
-            className="block w-full p-3 bg-white border border-[#2dc100]/30 rounded-lg text-[#2dc100] hover:underline text-center"
+            className="block w-full p-3 bg-white border border-[#2dc100]/30 rounded-lg text-[#2dc100] hover:underline text-center break-all"
           >
-            {deployedUrl}
+            {deployedInfo.url}
           </a>
+          {!deployedInfo.isPublic && deployedInfo.r2Url && (
+            <p className="mt-2 text-xs text-gray-500">原始R2链接 (仅供参考): 
+              <a href={deployedInfo.r2Url} target="_blank" rel="noopener noreferrer" className="underline hover:text-gray-700 break-all">{deployedInfo.r2Url}</a>
+            </p>
+          )}
           <div className="mt-4 flex gap-4 justify-center">
             <a
-              href={deployedUrl}
+              href={deployedInfo.url} // Use the main URL
               target="_blank"
               rel="noopener noreferrer"
               className="px-4 py-2 bg-[#2dc100] text-white rounded-lg hover:bg-[#249c00]"
@@ -183,7 +237,7 @@ export default function HtmlUploader() {
             </a>
             <button
               onClick={() => {
-                navigator.clipboard.writeText(deployedUrl);
+                navigator.clipboard.writeText(deployedInfo.url); // Copy the main URL
                 alert('链接已复制到剪贴板');
               }}
               className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300"

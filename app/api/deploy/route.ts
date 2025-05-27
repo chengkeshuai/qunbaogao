@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { uploadToR2 } from '@/app/lib/r2'; // 恢复R2上传服务
 // import { uploadFileToCOS } from '@/lib/cos-upload'; // 注释掉COS上传服务
+import crypto from 'crypto'; // Import crypto for hashing
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,6 +18,7 @@ export async function POST(request: NextRequest) {
     
     const htmlCode = body.htmlCode;
     const isPrivate = body.isPrivate === true; // Default to false if undefined
+    const password = body.password as string | undefined; // New password field
 
     // 验证HTML代码
     if (!htmlCode || typeof htmlCode !== 'string') {
@@ -51,11 +53,18 @@ export async function POST(request: NextRequest) {
     // 生成一个唯一的文件名，例如使用时间戳或UUID
     const uniqueFilename = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.html`;
 
+    let r2Metadata: Record<string, string> | undefined;
+    if (isPrivate && password && password.trim().length > 0) {
+      const passwordHash = crypto.createHash('sha256').update(password.trim()).digest('hex');
+      r2Metadata = { 'password-hash': passwordHash };
+    }
+
     // 上传到R2
     const deployedUrl = await uploadToR2(
       `deployed-html/${uniqueFilename}`, // 在R2中的路径和文件名
       htmlBuffer,
-      'text/html'
+      'text/html',
+      r2Metadata // Pass metadata to R2 upload function
     );
 
     if (!deployedUrl) {
@@ -72,6 +81,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ 
         url: appViewUrl, 
         isPublic: false,
+        hasPassword: !!r2Metadata, // Indicate if a password was set
         r2Url: deployedUrl // 原始R2链接也返回，供参考或后台使用
       });
     } else {

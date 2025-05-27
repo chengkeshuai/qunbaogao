@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
-import { R2_BUCKET_NAME, R2_PUBLIC_URL } from '@/app/lib/r2'; // 假设r2.ts导出了这些
+import { R2_BUCKET_NAME, R2_PUBLIC_URL, getObjectMetadata } from '@/app/lib/r2'; // 假设r2.ts导出了这些
+import crypto from 'crypto'; // Import crypto for hashing
 
 const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID;
 const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID;
@@ -20,6 +21,39 @@ const S3 = new S3Client({
   },
 });
 
+// Helper function to generate password prompt HTML
+function getPasswordPromptHTML(filename: string, error?: string): string {
+  return `
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>请输入密码</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 flex items-center justify-center h-screen">
+  <div class="bg-white p-8 rounded-lg shadow-md w-full max-w-sm">
+    <h1 class="text-2xl font-semibold mb-4 text-center text-gray-700">受保护的内容</h1>
+    <p class="text-gray-600 mb-6 text-center">此内容需要密码才能访问。</p>
+    <form method="GET" action="/api/view/${filename}" class="space-y-4">
+      <div>
+        <label for="password" class="block text-sm font-medium text-gray-700">密码:</label>
+        <input type="password" name="password" id="password" required 
+               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+      </div>
+      ${error ? `<p class="text-sm text-red-600">${error}</p>` : ''}
+      <button type="submit" 
+              class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+        提交
+      </button>
+    </form>
+  </div>
+</body>
+</html>
+  `.trim();
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { filename: string } }
@@ -36,10 +70,37 @@ export async function GET(
     return new NextResponse('Server configuration error', { status: 500 });
   }
 
+  const r2Key = `deployed-html/${filename}`;
+
   try {
+    const metadata = await getObjectMetadata(r2Key);
+    const passwordHash = metadata?.['password-hash'];
+
+    if (passwordHash) {
+      const url = new URL(request.url);
+      const providedPassword = url.searchParams.get('password');
+
+      if (!providedPassword) {
+        return new NextResponse(getPasswordPromptHTML(filename), { 
+          status: 200, // Serve the prompt page with 200 to allow form submission GET
+          headers: { 'Content-Type': 'text/html; charset=utf-8' }
+        });
+      }
+
+      const providedPasswordHash = crypto.createHash('sha256').update(providedPassword).digest('hex');
+      if (providedPasswordHash !== passwordHash) {
+        return new NextResponse(getPasswordPromptHTML(filename, '密码错误，请重试。'), { 
+          status: 200, // Serve the prompt page with error, status 200
+          headers: { 'Content-Type': 'text/html; charset=utf-8' }
+        });
+      }
+      // If password matches, proceed to fetch and return the object content
+    }
+
+    // Fetch and return object if no password or if password matched
     const getObjectCommand = new GetObjectCommand({
       Bucket: R2_BUCKET_NAME,
-      Key: `deployed-html/${filename}`, // 文件在R2中的完整路径
+      Key: r2Key,
     });
 
     const { Body, ContentType } = await S3.send(getObjectCommand);
