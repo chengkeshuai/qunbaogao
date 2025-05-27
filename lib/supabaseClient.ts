@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -17,40 +17,32 @@ if (!supabaseAnonKey) {
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
-let supabaseAdmin: any; // Define type if known, e.g., SupabaseClient
+// Singleton instance for admin client, created on first request
+let supabaseAdminInstance: SupabaseClient | null = null;
 
-if (supabaseServiceRoleKey) {
-  supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey, {
+export function getSupabaseAdmin(): SupabaseClient {
+  if (supabaseAdminInstance) {
+    return supabaseAdminInstance;
+  }
+
+  if (!supabaseServiceRoleKey) {
+    console.error("SUPABASE_SERVICE_ROLE_KEY is not set. Cannot create admin client.");
+    throw new Error("SUPABASE_SERVICE_ROLE_KEY is not configured on the server.");
+  }
+  
+  if (!supabaseUrl) { // Should be caught by earlier check, but defensive
+    throw new Error("Missing env.NEXT_PUBLIC_SUPABASE_URL for admin client creation.");
+  }
+
+  supabaseAdminInstance = createClient(supabaseUrl, supabaseServiceRoleKey, {
     auth: {
-      // It's generally recommended to disable auto-refreshing session for server-side clients
-      // if you're not using user-specific RLS policies that depend on the session.
       autoRefreshToken: false,
       persistSession: false,
-      // detectSessionInUrl: false, // Deprecated in newer versions
     }
   });
-} else {
-  console.warn("SUPABASE_SERVICE_ROLE_KEY is not set. Admin operations will not be available.")
-  // Fallback or restricted client if needed, or simply don't initialize admin client.
-  // For now, we'll allow supabaseAdmin to be undefined if the key is missing.
+  
+  return supabaseAdminInstance;
 }
 
-export { supabaseAdmin };
-
-// Helper function to get the admin client, ensuring it's initialized
-export function getSupabaseAdmin() {
-  if (!supabaseAdmin) {
-    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-       throw new Error("SUPABASE_SERVICE_ROLE_KEY is not set. Cannot perform admin operations.");
-    }
-    // This case should ideally not be reached if the initial check for supabaseServiceRoleKey is done correctly.
-    // Re-initialize if it was missed, though this suggests a logic flaw elsewhere.
-    supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
-        auth: {
-            autoRefreshToken: false,
-            persistSession: false,
-        }
-    });
-  }
-  return supabaseAdmin;
-} 
+// Optional: If you still want to export a potentially null admin client for some reason (not recommended for direct use in APIs)
+// export const supabaseAdmin = supabaseAdminInstance; // This would always be null initially 
