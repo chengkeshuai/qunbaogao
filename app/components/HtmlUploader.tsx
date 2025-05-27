@@ -20,12 +20,29 @@ export default function HtmlUploader() {
   const [setLinkPassword, setSetLinkPassword] = useState(false);
   const [password, setPassword] = useState('');
   const [showUploaderPassword, setShowUploaderPassword] = useState(true);
-  const [reportSetTitle, setReportSetTitle] = useState('');
+  const [knowledgeBaseTitle, setKnowledgeBaseTitle] = useState('');
 
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setHtmlCode(e.target.value);
     setUploadedFiles([]);
     setError('');
+    setDeployedInfo(null);
+  };
+
+  const moveFile = (index: number, direction: 'up' | 'down') => {
+    setUploadedFiles(prevFiles => {
+      const newFiles = [...prevFiles];
+      const fileToMove = newFiles[index];
+      const swapIndex = direction === 'up' ? index - 1 : index + 1;
+
+      if (swapIndex < 0 || swapIndex >= newFiles.length) {
+        return newFiles;
+      }
+
+      newFiles[index] = newFiles[swapIndex];
+      newFiles[swapIndex] = fileToMove;
+      return newFiles;
+    });
   };
 
   const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -92,52 +109,43 @@ export default function HtmlUploader() {
     setDeployedInfo(null);
 
     try {
-      // Prioritize multi-file upload if multiple files are in state
-      if (uploadedFiles.length > 1) {
-        // Ensure activeTab is 'set' if we are proceeding with multi-file deployment
-        // This is a safeguard, handleFileChange should have already set it.
-        if (activeTab !== 'set') {
-            // This case should ideally not be hit if UI flow is correct
-            // but if it is, let's assume user intent was a set.
-            console.warn("handleSubmit: uploadedFiles.length > 1 but activeTab was not 'set'. Forcing to 'set' flow.");
-        }
-
+      if (activeTab === 'set' && uploadedFiles.length > 0 ) { 
         const requestBody: { files: UploadedFile[]; title?: string; password?: string } = {
           files: uploadedFiles,
         };
-        if (reportSetTitle.trim()) {
-          requestBody.title = reportSetTitle.trim();
+        if (knowledgeBaseTitle.trim()) { 
+          requestBody.title = knowledgeBaseTitle.trim();
         }
         if (setLinkPassword && password.trim().length > 0) {
           requestBody.password = password.trim();
         }
 
-        const response = await fetch('/api/deploy-set', { // New API endpoint for sets
+        const response = await fetch('/api/deploy-set', { 
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(requestBody),
         });
 
         if (!response.ok) {
-          const errorData = await response.json().catch(() => ({ message: '部署报告集失败，无法解析错误信息' }));
-          throw new Error(errorData.error || '部署报告集失败');
+          const errorData = await response.json().catch(() => ({ message: '创建知识库失败，无法解析错误信息' }));
+          throw new Error(errorData.error || '创建知识库失败');
         }
         const data = await response.json();
-        setDeployedInfo({ ...data, isSet: true }); // Mark as a set
+        setDeployedInfo({ ...data, isSet: true });
 
-      } else { // Deploying single file (from paste tab, or single file from upload that got routed to paste tab)
-        if (!htmlCode.trim() && uploadedFiles.length === 1) {
-          // If htmlCode is empty but there was a single uploaded file (which should have populated htmlCode)
-          // This is a fallback, normally htmlCode should be set by handleFileChange for single file.
-          setHtmlCode(uploadedFiles[0].content);
+      } else { 
+        let currentHtmlCode = htmlCode;
+        if (!currentHtmlCode.trim() && uploadedFiles.length === 1 && activeTab === 'paste') {
+          currentHtmlCode = uploadedFiles[0].content;
+          setHtmlCode(currentHtmlCode); 
         }
         
-        if (!htmlCode.trim()) {
+        if (!currentHtmlCode.trim()) {
           setError('请上传或粘贴HTML代码');
           setIsUploading(false);
           return;
         }
-        const requestBody: { htmlCode: string; password?: string } = { htmlCode };
+        const requestBody: { htmlCode: string; password?: string } = { htmlCode: currentHtmlCode };
         if (setLinkPassword && password.trim().length > 0) {
           requestBody.password = password.trim();
         }
@@ -184,18 +192,18 @@ export default function HtmlUploader() {
       <div className="flex rounded-md overflow-hidden mb-4">
         <button
           type="button"
-          onClick={() => { setActiveTab('upload'); setUploadedFiles([]); setHtmlCode(''); setReportSetTitle(''); setError(''); setDeployedInfo(null); }}
+          onClick={() => { setActiveTab('upload'); setUploadedFiles([]); setHtmlCode(''); setKnowledgeBaseTitle(''); setError(''); setDeployedInfo(null); }}
           className={`flex-1 py-3 px-4 text-center transition-colors font-semibold text-base md:text-lg rounded-tl-md rounded-bl-md ${
             activeTab === 'upload' || activeTab === 'set'
               ? 'bg-[#2dc100] text-white'
               : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-300'
           }`}
         >
-          {activeTab === 'set' && uploadedFiles.length > 1 ? '编辑报告集文件' : '上传 (单个或多个文件)'}
+          {activeTab === 'set' && uploadedFiles.length > 0 ? '编辑知识库文件' : '上传 (创建知识库或单个网页)'}
         </button>
         <button
           type="button"
-          onClick={() => { setActiveTab('paste'); setUploadedFiles([]); setReportSetTitle(''); setError(''); setDeployedInfo(null); }}
+          onClick={() => { setActiveTab('paste'); setUploadedFiles([]); setHtmlCode(''); setKnowledgeBaseTitle(''); setError(''); setDeployedInfo(null); }}
           className={`flex-1 py-3 px-4 text-center transition-colors font-semibold text-base md:text-lg rounded-tr-md rounded-br-md ${
             activeTab === 'paste'
               ? 'bg-[#2dc100] text-white'
@@ -218,7 +226,7 @@ export default function HtmlUploader() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
             </svg>
             <p className="text-lg font-medium text-gray-700">拖放您的HTML文件到此处</p>
-            <p className="text-sm text-gray-500 mt-1 mb-3">或点击选择文件 (可多选)</p>
+            <p className="text-sm text-gray-500 mt-1 mb-3">或点击选择文件 (可多选创建知识库)</p>
             <button
               type="button"
               className="px-4 py-2 bg-[#2dc100] text-white rounded-lg hover:bg-[#249c00] focus:outline-none"
@@ -239,19 +247,48 @@ export default function HtmlUploader() {
             />
             {uploadedFiles.length > 0 && (activeTab === 'upload' || activeTab === 'set') && (
               <div className="mt-4 w-full">
-                <h4 className="font-semibold text-gray-700 mb-2">
-                  已选择 {uploadedFiles.length} 个文件:
+                <div className='flex justify-between items-center mb-2'>
+                  <h4 className="font-semibold text-gray-700">
+                    已选择 {uploadedFiles.length} 个文件:
+                  </h4>
                   {uploadedFiles.length > 1 && activeTab === 'upload' && (
-                    <button type="button" onClick={() => setActiveTab('set')} className="ml-2 text-sm text-[#2dc100] hover:underline">(配置报告集)</button>
+                    <button type="button" onClick={() => setActiveTab('set')} className="ml-2 text-sm text-[#2dc100] hover:underline">(配置知识库)</button>
                   )}
-                </h4>
-                <ul className="list-disc list-inside bg-gray-50 p-3 rounded-md max-h-40 overflow-y-auto">
+                </div>
+                 {uploadedFiles.length > 1 && (
+                  <p className="text-sm font-bold text-green-600 mb-2">小提示：您可以通过文件名右侧的箭头调整文件在知识库中的顺序。</p>
+                )}
+                <ul className="list-none bg-gray-50 p-3 rounded-md max-h-60 overflow-y-auto space-y-2">
                   {uploadedFiles.map((file, index) => (
-                    <li key={index} className="text-sm text-gray-600 truncate">{file.name}</li>
+                    <li key={index} className="text-sm text-gray-700 flex justify-between items-center p-2 hover:bg-gray-100 rounded">
+                      <span className="truncate flex-grow mr-2">{file.name}</span>
+                      {uploadedFiles.length > 1 && (
+                        <div className="flex-shrink-0 space-x-1">
+                          <button 
+                            type="button" 
+                            onClick={(e) =>{ e.stopPropagation(); moveFile(index, 'up');}} 
+                            disabled={index === 0}
+                            className="p-1 rounded hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed"
+                            aria-label="Move up"
+                          >
+                            <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 15l7-7 7 7"></path></svg>
+                          </button>
+                          <button 
+                            type="button" 
+                            onClick={(e) => {e.stopPropagation(); moveFile(index, 'down');}} 
+                            disabled={index === uploadedFiles.length - 1}
+                            className="p-1 rounded hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed"
+                            aria-label="Move down"
+                          >
+                            <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                          </button>
+                        </div>
+                      )}
+                    </li>
                   ))}
                 </ul>
                  {uploadedFiles.length === 1 && activeTab === 'upload' && (
-                     <p className="text-xs text-gray-500 mt-1">选择单个文件将使用"粘贴单个代码"的方式部署。如需创建报告集，请至少选择两个文件，或在选择一个文件后点击上面的"(配置报告集)"链接。</p>
+                     <p className="text-xs text-gray-500 mt-1">选择单个文件将使用"粘贴单个代码"的方式部署。如需创建知识库，请选择多个文件，或在选择一个文件后点击上面的"(配置知识库)"链接。</p>
                  )}
               </div>
             )}
@@ -279,19 +316,19 @@ export default function HtmlUploader() {
 
         {activeTab === 'set' && uploadedFiles.length > 0 && (
           <div className="my-4 p-4 border border-dashed border-gray-300 rounded-lg bg-gray-50">
-            <h3 className="text-lg font-semibold text-gray-800 mb-3">报告集设置</h3>
-            <label htmlFor="report-set-title" className="block text-sm font-medium text-gray-700 mb-1">
-              报告集标题 (可选):
+            <h3 className="text-lg font-semibold text-gray-800 mb-3">知识库设置</h3>
+            <label htmlFor="knowledge-base-title" className="block text-sm font-medium text-gray-700 mb-1">
+              知识库标题:
             </label>
             <input
               type="text"
-              id="report-set-title"
-              value={reportSetTitle}
-              onChange={(e) => setReportSetTitle(e.target.value)}
-              placeholder="例如：五月第一周日报"
+              id="knowledge-base-title"
+              value={knowledgeBaseTitle}
+              onChange={(e) => setKnowledgeBaseTitle(e.target.value)}
+              placeholder="例如：项目文档、月度日报汇总等"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2dc100] focus:border-transparent focus:outline-none text-sm"
             />
-             <p className="text-xs text-gray-500 mt-1">已选择 {uploadedFiles.length} 个文件将包含在此报告集中。</p>
+             <p className="text-xs text-gray-500 mt-1">已选择 {uploadedFiles.length} 个文件将包含在此知识库中。</p>
           </div>
         )}
         
@@ -312,7 +349,7 @@ export default function HtmlUploader() {
                   id="setLinkPasswordCheckbox"
                 />
                 <span>
-                  {activeTab === 'set' ? '为此报告集设置密码' : '为此链接设置密码'}
+                  {activeTab === 'set' ? '为此知识库设置密码' : '为此链接设置密码'}
                 </span>
               </label>
             </div>
@@ -320,7 +357,7 @@ export default function HtmlUploader() {
             {setLinkPassword && (
               <div className="my-4">
                 <label htmlFor="link-password" className="block text-sm font-medium text-gray-700 mb-1">
-                  {activeTab === 'set' ? '设置报告集访问密码:' : '设置访问密码:'}
+                  {activeTab === 'set' ? '设置知识库访问密码:' : '设置访问密码:'}
                 </label>
                 <div className="relative">
                   <input 
@@ -352,12 +389,12 @@ export default function HtmlUploader() {
         <div className="flex justify-end">
           <button
             type="submit"
-            disabled={isUploading || (activeTab !== 'paste' && uploadedFiles.length === 0) || (activeTab === 'paste' && !htmlCode.trim())}
+            disabled={isUploading || (activeTab === 'paste' ? !htmlCode.trim() : uploadedFiles.length === 0)}
             className="px-4 py-2 bg-[#2dc100] text-white rounded-lg hover:bg-[#249c00] focus:outline-none focus:ring-2 focus:ring-[#2dc100] disabled:opacity-50"
           >
             {isUploading 
-              ? '正在部署...' 
-              : (activeTab === 'set' ? '创建报告集' : '部署网页')}
+              ? '处理中...' 
+              : (activeTab === 'set' ? '创建知识库' : '部署网页')}
           </button>
         </div>
       </form>
@@ -371,15 +408,15 @@ export default function HtmlUploader() {
       {deployedInfo && (
         <div className="mt-6 p-4 bg-[#e6f9e6] border border-[#2dc100]/30 rounded-lg">
           <h3 className="text-lg font-medium text-[#2dc100] mb-2">
-            {deployedInfo.isSet ? '报告集创建成功！' : '部署成功！'}
+            {deployedInfo.isSet ? '知识库创建成功！' : '部署成功！'}
           </h3>
           <p className="mb-2 text-[#238a00]">
             {deployedInfo.isSet 
-              ? `您的报告集包含 ${deployedInfo.files?.length || 0} 个文件，已成功创建。`
+              ? `您的知识库包含 ${deployedInfo.files?.length || 0} 个文件，已成功创建。`
               : '您的网页已成功部署。'}
             {deployedInfo.hasPassword ? 
-              (deployedInfo.isSet ? '这是一个受密码保护的报告集链接：' : '这是一个受密码保护的链接：') :
-              (deployedInfo.isSet ? '这是一个公开访问的报告集链接：' : '这是一个公开访问的链接：')
+              (deployedInfo.isSet ? '这是一个受密码保护的知识库链接：' : '这是一个受密码保护的链接：') :
+              (deployedInfo.isSet ? '这是一个公开访问的知识库链接：' : '这是一个公开访问的链接：')
             }
           </p>
           <a
@@ -390,7 +427,7 @@ export default function HtmlUploader() {
           >
             {deployedInfo.url}
           </a>
-          {!deployedInfo.isSet && !deployedInfo.isPublic && deployedInfo.r2Url && (
+          {!deployedInfo.isSet && deployedInfo.r2Url && (
             <p className="mt-2 text-xs text-gray-500">原始R2存储路径: 
               <a href={deployedInfo.r2Url} target="_blank" rel="noopener noreferrer" className="underline hover:text-gray-700 break-all">{deployedInfo.r2Url}</a>
             </p>
@@ -402,16 +439,20 @@ export default function HtmlUploader() {
               rel="noopener noreferrer"
               className="px-4 py-2 bg-[#2dc100] text-white rounded-lg hover:bg-[#249c00]"
             >
-              {deployedInfo.isSet ? '访问报告集' : '访问网页'}
+              {deployedInfo.isSet ? '访问知识库' : '访问网页'}
             </a>
             <button
               onClick={() => {
-                let urlToCopy = deployedInfo.url;
-                if (!urlToCopy.startsWith('http')) {
-                  urlToCopy = window.location.origin + urlToCopy;
+                if (deployedInfo && deployedInfo.url) { 
+                  let urlToCopy = deployedInfo.url;
+                  if (!urlToCopy.startsWith('http')) {
+                    urlToCopy = window.location.origin + urlToCopy;
+                  }
+                  navigator.clipboard.writeText(urlToCopy);
+                  alert('链接已复制到剪贴板');
+                } else {
+                  alert('无法复制链接，信息不完整。');
                 }
-                navigator.clipboard.writeText(urlToCopy);
-                alert('链接已复制到剪贴板');
               }}
               className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300"
             >
