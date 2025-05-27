@@ -12,7 +12,7 @@ export default function HtmlUploader() {
   const [activeTab, setActiveTab] = useState('upload');
   const [uploadedFileName, setUploadedFileName] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [isPrivateLink, setIsPrivateLink] = useState(false);
+  const [setLinkPassword, setSetLinkPassword] = useState(false);
   const [password, setPassword] = useState('');
   const [showUploaderPassword, setShowUploaderPassword] = useState(true);
 
@@ -48,12 +48,11 @@ export default function HtmlUploader() {
       setError('');
       setDeployedInfo(null);
 
-      const requestBody: { htmlCode: string; isPrivate: boolean; password?: string } = {
+      const requestBody: { htmlCode: string; password?: string } = {
         htmlCode,
-        isPrivate: isPrivateLink,
       };
 
-      if (isPrivateLink && password.trim().length > 0) {
+      if (setLinkPassword && password.trim().length > 0) {
         requestBody.password = password.trim();
       }
 
@@ -160,16 +159,21 @@ export default function HtmlUploader() {
           <label className="flex items-center space-x-2 text-sm text-gray-700 cursor-pointer">
             <input 
               type="checkbox" 
-              checked={isPrivateLink}
-              onChange={(e) => setIsPrivateLink(e.target.checked)}
+              checked={setLinkPassword}
+              onChange={(e) => {
+                setSetLinkPassword(e.target.checked);
+                if (!e.target.checked) {
+                  setPassword('');
+                }
+              }}
               className="form-checkbox h-4 w-4 text-[#2dc100] rounded border-gray-300 focus:ring-[#2dc100]/50 focus:ring-offset-0 focus:ring-1"
-              id="privateLinkCheckbox"
+              id="setLinkPasswordCheckbox"
             />
-            <span>生成私有链接</span>
+            <span>为此链接设置密码 (可选)</span>
           </label>
         </div>
 
-        {isPrivateLink && (
+        {setLinkPassword && (
           <div className="my-4">
             <label htmlFor="link-password" className="block text-sm font-medium text-gray-700 mb-1">
               设置访问密码 (可选):
@@ -221,9 +225,9 @@ export default function HtmlUploader() {
           <h3 className="text-lg font-medium text-[#2dc100] mb-2">部署成功！</h3>
           <p className="mb-2 text-[#238a00]">
             您的网页已成功部署。
-            {deployedInfo.isPublic ? 
-              '可通过以下公开链接访问：' : 
-              `这是一个私有链接${deployedInfo.hasPassword ? ' (已设置密码)' : ' (未设置密码)'}：`
+            {deployedInfo.hasPassword ? 
+              '这是一个受密码保护的链接：' : 
+              '这是一个公开访问的链接 (通过您的域名提供)：'
             }
           </p>
           <a
@@ -235,7 +239,7 @@ export default function HtmlUploader() {
             {deployedInfo.url}
           </a>
           {!deployedInfo.isPublic && deployedInfo.r2Url && (
-            <p className="mt-2 text-xs text-gray-500">原始R2链接 (仅供参考): 
+            <p className="mt-2 text-xs text-gray-500">原始R2存储路径 (仅供参考): 
               <a href={deployedInfo.r2Url} target="_blank" rel="noopener noreferrer" className="underline hover:text-gray-700 break-all">{deployedInfo.r2Url}</a>
             </p>
           )}
@@ -251,7 +255,7 @@ export default function HtmlUploader() {
             <button
               onClick={() => {
                 let urlToCopy = deployedInfo.url;
-                if (!deployedInfo.isPublic && !urlToCopy.startsWith('http')) {
+                if (!urlToCopy.startsWith('http')) {
                   urlToCopy = window.location.origin + urlToCopy;
                 }
                 navigator.clipboard.writeText(urlToCopy);

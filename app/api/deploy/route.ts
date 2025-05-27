@@ -17,8 +17,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     
     const htmlCode = body.htmlCode;
-    const isPrivate = body.isPrivate === true; // Default to false if undefined
-    const password = body.password as string | undefined; // New password field
+    // const isPrivate = body.isPrivate === true; // This is no longer used to determine URL type
+    const password = body.password as string | undefined;
 
     // 验证HTML代码
     if (!htmlCode || typeof htmlCode !== 'string') {
@@ -54,9 +54,11 @@ export async function POST(request: NextRequest) {
     const uniqueFilename = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.html`;
 
     let r2Metadata: Record<string, string> | undefined;
-    if (isPrivate && password && password.trim().length > 0) {
+    let hasPasswordSet = false;
+    if (password && password.trim().length > 0) { // Password is only set if provided
       const passwordHash = crypto.createHash('sha256').update(password.trim()).digest('hex');
       r2Metadata = { 'password-hash': passwordHash };
+      hasPasswordSet = true;
     }
 
     // 上传到R2
@@ -74,20 +76,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (isPrivate) {
-      // 对于私有链接，我们返回一个应用内路径
-      // 浏览器会自动解析为 https://yourdomain.com/api/view/...
-      const appViewUrl = `/api/view/${uniqueFilename}`;
-      return NextResponse.json({ 
-        url: appViewUrl, 
-        isPublic: false,
-        hasPassword: !!r2Metadata, // Indicate if a password was set
-        r2Url: deployedUrl // 原始R2链接也返回，供参考或后台使用
-      });
-    } else {
-      // 对于公开链接，直接返回R2 URL
-      return NextResponse.json({ url: deployedUrl, isPublic: true });
-    }
+    // Always return an app-internal path
+    const appViewUrl = `/api/view/${uniqueFilename}`;
+    return NextResponse.json({ 
+      url: appViewUrl, 
+      // isPublic: false, // This field might be redundant now or always false
+      hasPassword: hasPasswordSet,
+      r2Url: deployedUrl // 原始R2链接仍然可以返回，供参考或后台使用
+    });
+
   } catch (error) {
     console.error('部署HTML失败:', error);
     return NextResponse.json(
