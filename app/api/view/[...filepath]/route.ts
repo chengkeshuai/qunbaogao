@@ -21,7 +21,7 @@ const S3 = new S3Client({
 });
 
 // Helper function to generate password prompt HTML
-function getPasswordPromptHTML(filepathForFormAction: string, error?: string, knowledgeBaseTitle?: string): string {
+function getPasswordPromptHTML(filepathForFormAction: string, error?: string, knowledgeBaseTitle?: string, isInsideKnowledgeBaseView?: boolean): string {
   const WECHAT_GREEN = '#2dc100';
   const WECHAT_GREEN_HOVER = '#249c00';
 
@@ -39,6 +39,7 @@ function getPasswordPromptHTML(filepathForFormAction: string, error?: string, kn
     <h1 class="text-2xl font-semibold mb-2 text-center text-gray-700">受保护的内容</h1>
     ${knowledgeBaseTitle ? `<p class="text-gray-600 mb-4 text-center text-sm">知识库: ${knowledgeBaseTitle}</p>` : '<p class="text-gray-600 mb-6 text-center">此内容需要密码才能访问。</p>'}
     <form method="GET" action="" class="space-y-4">
+      ${isInsideKnowledgeBaseView ? '<input type="hidden" name="isInsideKnowledgeBase" value="true" />' : ''}
       <div>
         <label for="passwordInput" class="block text-sm font-medium text-gray-700">密码:</label>
         <div class="relative mt-1">
@@ -151,7 +152,7 @@ export async function GET(
 
       if (!actualPasswordToVerify) {
         console.log('[API View] No password/token provided, rendering prompt.'); // LOG PROMPT CASE
-        return new NextResponse(getPasswordPromptHTML(r2Key, undefined, knowledgeBaseTitle), { 
+        return new NextResponse(getPasswordPromptHTML(r2Key, undefined, knowledgeBaseTitle, isInsideKnowledgeBase), { 
           status: 200, 
           headers: { 'Content-Type': 'text/html; charset=utf-8' }
         });
@@ -161,7 +162,7 @@ export async function GET(
       const providedPasswordHash = crypto.createHash('sha256').update(providedPasswordTrimmed).digest('hex');
       if (providedPasswordHash !== passwordHash) {
         console.log(`[API View] Password/token mismatch. Provided hash: ${providedPasswordHash}, Expected hash: ${passwordHash}. Rendering prompt with error.`); // LOG MISMATCH + HASHES
-        return new NextResponse(getPasswordPromptHTML(r2Key, '密码错误，请重试。', knowledgeBaseTitle), { 
+        return new NextResponse(getPasswordPromptHTML(r2Key, '密码错误，请重试。', knowledgeBaseTitle, isInsideKnowledgeBase), { 
           status: 200, 
           headers: { 'Content-Type': 'text/html; charset=utf-8' }
         });
