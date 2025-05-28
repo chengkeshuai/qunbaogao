@@ -115,7 +115,7 @@ export default function Home() {
                 <ul className="space-y-3">
                   <li className="flex items-center text-gray-700">
                     <i className="fas fa-check-circle text-[#2dc100] mr-2"></i>
-                    可设置密码保护知识产权
+                    可以设置密码保护
                   </li>
                   <li className="flex items-center text-gray-700">
                     <i className="fas fa-check-circle text-[#2dc100] mr-2"></i>
@@ -138,7 +138,7 @@ export default function Home() {
                 <ul className="space-y-3">
                   <li className="flex items-center text-gray-700">
                     <i className="fas fa-check-circle text-[#2dc100] mr-2"></i>
-                    课程讨论整理为知识库
+                    课程讨论整理保存
                   </li>
                   <li className="flex items-center text-gray-700">
                     <i className="fas fa-check-circle text-[#2dc100] mr-2"></i>
@@ -184,7 +184,7 @@ export default function Home() {
                 <ul className="space-y-3">
                   <li className="flex items-center text-gray-700">
                     <i className="fas fa-check-circle text-[#2dc100] mr-2"></i>
-                    专业知识归档为知识库
+                    专业知识归档
                   </li>
                   <li className="flex items-center text-gray-700">
                     <i className="fas fa-check-circle text-[#2dc100] mr-2"></i>
@@ -206,7 +206,7 @@ export default function Home() {
                 <div className="p-8 lg:p-12">
                   <h2 className="text-4xl font-bold text-gray-900 mb-6">关于群报告</h2>
                   <p className="text-lg text-gray-700 mb-4">
-                    群报告是一个免费的HTML可视化转网页平台，无需复杂部署，简单几步即可将HTML代码变成可访问的网页。支持一次上传多个HTML文件，多个文件会自动生成知识库合集。
+                    群报告是一个免费的HTML转网页工具，无需复杂部署，简单几步即可将HTML代码变成可访问的网页。支持一次上传多个HTML文件，多个文件会自动生成知识库合集。
                   </p>
                   <p className="text-lg text-gray-700 mb-6">
                     我们使用先进的云存储技术，确保您的网页安全、稳定且持久可访问，让分享和展示变得简单高效。

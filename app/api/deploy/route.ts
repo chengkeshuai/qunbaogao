@@ -62,8 +62,9 @@ export async function POST(request: NextRequest) {
     }
 
     // 上传到R2
+    const r2Key = `deployed-html/${uniqueFilename}`; // 定义 r2Key
     const deployedUrl = await uploadToR2(
-      `deployed-html/${uniqueFilename}`, // 在R2中的路径和文件名
+      r2Key, // 使用 r2Key
       htmlBuffer,
       'text/html',
       r2Metadata // Pass metadata to R2 upload function
@@ -76,8 +77,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Always return an app-internal path
-    const appViewUrl = `/api/view/${uniqueFilename}`;
+    // Always return an app-internal path that matches the R2 key structure expected by /api/view
+    const appViewUrl = `/api/view/${r2Key}`; // <--- 修改此处，包含 r2Key (即 'deployed-html/...')
     return NextResponse.json({ 
       url: appViewUrl, 
       // isPublic: false, // This field might be redundant now or always false

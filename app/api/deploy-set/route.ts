@@ -91,6 +91,7 @@ function extractKeywords(htmlContent: string): string[] {
 */
 
 export async function POST(request: NextRequest) {
+  console.log('--- Deploy Set Request Headers ---', JSON.stringify(Object.fromEntries(request.headers.entries())));
   const supabaseAdmin = getSupabaseAdmin();
   try {
     const formData = await request.formData();
