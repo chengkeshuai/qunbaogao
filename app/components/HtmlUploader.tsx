@@ -4,7 +4,6 @@ import { useState, useRef, useCallback } from 'react';
 // 假设你已经有某种方式引入了 Font Awesome，例如在全局CSS或Layout中
 // import '@fortawesome/fontawesome-free/css/all.min.css'; 
 import { ArrowUpCircleIcon, ArrowDownCircleIcon } from '@heroicons/react/24/outline'; // 引入Heroicons
-import ToastNotification from './ToastNotification'; // 引入自定义Toast组件
 
 interface UploadedFile {
   name: string;
@@ -23,11 +22,6 @@ export default function HtmlUploader() {
   const [password, setPassword] = useState('');
   const [showUploaderPassword, setShowUploaderPassword] = useState(true);
   const [knowledgeBaseTitle, setKnowledgeBaseTitle] = useState('');
-  const [toast, setToast] = useState({ show: false, message: '', type: 'info' as 'success' | 'error' | 'info' });
-  const [isDeploying, setIsDeploying] = useState(false);
-  const [editingSetId, setEditingSetId] = useState('');
-  const [isPasswordProtected, setIsPasswordProtected] = useState(false);
-  const [knowledgeBasePassword, setKnowledgeBasePassword] = useState('');
 
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setHtmlCode(e.target.value);
@@ -117,6 +111,40 @@ export default function HtmlUploader() {
 
     try {
       if (activeTab === 'set' && uploadedFiles.length > 0 ) { 
+        // TEST: Send a simplified request first, without files array
+        const testRequestBody: { title?: string; password?: string; test?: boolean } = {
+          test: true, // Add a flag to indicate this is a test
+        };
+        if (knowledgeBaseTitle.trim()) { 
+          testRequestBody.title = knowledgeBaseTitle.trim();
+        }
+        if (setLinkPassword && password.trim().length > 0) {
+          testRequestBody.password = password.trim();
+        }
+
+        console.log('Sending test request to /api/deploy-set:', JSON.stringify(testRequestBody));
+
+        const testResponse = await fetch('/api/deploy-set', { 
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(testRequestBody),
+        });
+
+        console.log('Test response status:', testResponse.status);
+        const testResponseData = await testResponse.json();
+        console.log('Test response data:', testResponseData);
+
+        if (!testResponse.ok && testResponseData.error !== '至少需要上传一个HTML文件来创建报告集') { // Expecting specific error if test passes routing
+           // If it's not the expected error, or if it's still the Content-Type error, then throw
+            throw new Error(testResponseData.error || `Test request failed with status ${testResponse.status}`);
+        }
+        // If the test request went through (even if backend rejected it for missing files),
+        // it means the Content-Type error is likely related to the full files array.
+        // For now, let's assume the test passes and proceed to throw an error to prevent actual deployment with this test code.
+        // To proceed with actual deployment logic, this test block should be removed.
+        // throw new Error('Test completed. Remove test block in HtmlUploader.tsx to deploy normally.'); 
+
+        // Original request logic (commented out for this test)
         const requestBody: { files: UploadedFile[]; title?: string; password?: string } = {
           files: uploadedFiles,
         };
@@ -193,78 +221,6 @@ export default function HtmlUploader() {
     }
   }, [handleFileChange]);
 
-  const showToast = (message: string, type: 'success' | 'error' | 'info') => {
-    setToast({ show: true, message, type });
-  };
-
-  const handleDeploySet = async () => {
-    if (uploadedFiles.length === 0 && !editingSetId) {
-      showToast('请至少上传一个HTML文件', 'error');
-      return;
-    }
-    if (!knowledgeBaseTitle.trim() && !editingSetId) {
-      showToast('请输入知识库标题', 'error');
-      return;
-    }
-    if (isPasswordProtected && !knowledgeBasePassword.trim() && !editingSetId) { // Only require password if creating new and protected
-      showToast('请为受保护的知识库输入密码', 'error');
-      return;
-    }
-
-    setIsDeploying(true);
-    showToast('正在部署知识库...', 'info');
-
-    // --- 测试简化 FormData --- 
-    const testFormData = new FormData();
-    testFormData.append('title', knowledgeBaseTitle || 'Test Title');
-    if (editingSetId) {
-      testFormData.append('reportSetId', editingSetId);
-    }
-    if (isPasswordProtected && knowledgeBasePassword) {
-      testFormData.append('password', knowledgeBasePassword);
-    }
-    // --- 结束测试简化 FormData ---
-
-    /* // 原来的 FormData 构建逻辑，暂时注释掉
-    const formData = new FormData();
-    formData.append('title', knowledgeBaseTitle);
-    if (isPasswordProtected && knowledgeBasePassword) {
-      formData.append('password', knowledgeBasePassword);
-    }
-    if (editingSetId) {
-      formData.append('reportSetId', editingSetId);
-    }
-    const userId = supabaseUser?.id;
-    if (userId) {
-        formData.append('userId', userId);
-    }
-
-    const filesData = uploadedFiles.map(file => ({
-      name: file.name,
-      content: file.base64Content, 
-    }));
-    formData.append('filesData', JSON.stringify(filesData));
-
-    uploadedFiles.forEach(file => {
-      if (file.originalFile) {
-        formData.append(file.name, file.originalFile);
-      }
-    });
-    */
-
-    try {
-      const response = await fetch('/api/deploy-set', {
-        method: 'POST',
-        body: testFormData, // 使用简化的 FormData 进行测试
-      });
-
-      const result = await response.json();
-      // ... existing code ...
-    } catch (err) {
-      // ... existing error handling ...
-    }
-  };
-
   return (
     <div className="w-full max-w-3xl mx-auto">
       <div className="flex rounded-md overflow-hidden mb-4">
@@ -291,13 +247,6 @@ export default function HtmlUploader() {
           粘贴单个代码
         </button>
       </div>
-
-      <ToastNotification 
-        message={toast.message}
-        type={toast.type}
-        show={toast.show}
-        onClose={() => setToast({ ...toast, show: false })}
-      />
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {(activeTab === 'upload' || activeTab === 'set') && (
@@ -527,25 +476,42 @@ export default function HtmlUploader() {
               {deployedInfo.isSet ? '访问知识库' : '访问网页'}
             </a>
             <button
+              type="button"
               onClick={() => {
-                if (deployedInfo && deployedInfo.url) { 
-                  let urlToCopy = deployedInfo.url;
-                  if (!urlToCopy.startsWith('http')) {
-                    urlToCopy = window.location.origin + urlToCopy;
-                  }
-                  navigator.clipboard.writeText(urlToCopy)
-                    .then(() => {
-                      showToast('链接已复制到剪贴板', 'success');
-                    })
-                    .catch(err => {
-                      console.error('复制失败:', err);
-                      showToast('复制失败，请重试', 'error');
-                    });
-                } else {
-                  showToast('无法复制链接，信息不完整。', 'error');
+                // 如果密码已设置且未通过验证，则不复制
+                if (deployedInfo.hasPassword && !deployedInfo.isPublic) {
+                  alert('请先验证密码');
+                  return;
                 }
+                let urlToCopy = deployedInfo.isSet ? deployedInfo.url : deployedInfo.r2Url!;
+                if (!urlToCopy.startsWith('http')) {
+                    urlToCopy = window.location.origin + urlToCopy;
+                }
+                navigator.clipboard.writeText(urlToCopy)
+                  .then(() => alert('源文件链接已复制!'))
+                  .catch(err => alert('无法复制链接: ' + err));
               }}
               className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300"
+            >
+              复制源文件链接
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                  // 如果密码已设置且未通过验证，则不复制
+                  if (deployedInfo.hasPassword && !deployedInfo.isPublic) {
+                    alert('请先验证密码');
+                    return;
+                  }
+                  let urlToCopy = deployedInfo.url;
+                  if (!urlToCopy.startsWith('http')) {
+                      urlToCopy = window.location.origin + urlToCopy;
+                  }
+                  navigator.clipboard.writeText(urlToCopy)
+                    .then(() => alert('链接已复制!')) 
+                    .catch(err => alert('无法复制链接: ' + err));
+              }}
+              className="px-4 py-2 bg-[#2dc100] text-white rounded-lg hover:bg-[#249c00] focus:outline-none"
             >
               复制链接
             </button>
