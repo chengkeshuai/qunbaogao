@@ -160,7 +160,7 @@ export async function GET(
       const providedPasswordTrimmed = actualPasswordToVerify.trim();
       const providedPasswordHash = crypto.createHash('sha256').update(providedPasswordTrimmed).digest('hex');
       if (providedPasswordHash !== passwordHash) {
-        console.log('[API View] Password/token mismatch. Rendering prompt with error.'); // LOG MISMATCH
+        console.log(`[API View] Password/token mismatch. Provided hash: ${providedPasswordHash}, Expected hash: ${passwordHash}. Rendering prompt with error.`); // LOG MISMATCH + HASHES
         return new NextResponse(getPasswordPromptHTML(r2Key, '密码错误，请重试。', knowledgeBaseTitle), { 
           status: 200, 
           headers: { 'Content-Type': 'text/html; charset=utf-8' }
@@ -198,28 +198,31 @@ export async function GET(
     if (passwordHash && 
         urlForPostMessageCheck.searchParams.get('isInsideKnowledgeBase') === 'true'
     ) {
-      // Check if *any* password was successfully validated for this request.
-      // This could be from a form submission (params.get('password')) or a token (params.get('token'))
       const validatedPasswordInput = urlForPostMessageCheck.searchParams.get('token') || urlForPostMessageCheck.searchParams.get('password');
-      if (validatedPasswordInput && crypto.createHash('sha256').update(validatedPasswordInput.trim()).digest('hex') === passwordHash) {
-        const validatedPasswordForPostMessage = validatedPasswordInput.trim();
-        console.log(`[API View] Password validated. Injecting postMessage script with token: ${validatedPasswordForPostMessage}`); // LOG POSTMESSAGE INJECTION
-        const postMessageScript = `
-        <script>
-          try {
-            if (window.parent && window.parent !== window) {
-              window.parent.postMessage({ type: 'knowledgeBasePasswordValidated', token: '${validatedPasswordForPostMessage.replace(/'/g, '\'')}' }, '*');
+      console.log(`[API View] Attempting postMessage logic: validatedPasswordInput=${validatedPasswordInput}`); // LOG before hash check for postMessage
+      if (validatedPasswordInput) {
+        const currentAttemptHash = crypto.createHash('sha256').update(validatedPasswordInput.trim()).digest('hex');
+        console.log(`[API View] For postMessage: currentAttemptHash=${currentAttemptHash}, expectedHash=${passwordHash}`); // LOG HASHES for postMessage
+        if (currentAttemptHash === passwordHash) {
+          const validatedPasswordForPostMessage = validatedPasswordInput.trim();
+          console.log(`[API View] Password validated FOR POSTMESSAGE. Injecting postMessage script with token: ${validatedPasswordForPostMessage}`); 
+          const postMessageScript = `
+          <script>
+            try {
+              if (window.parent && window.parent !== window) {
+                window.parent.postMessage({ type: 'knowledgeBasePasswordValidated', token: '${validatedPasswordForPostMessage.replace(/'/g, '\'')}' }, '*');
+              }
+            } catch (e) {
+              console.error('Error posting message to parent:', e);
             }
-          } catch (e) {
-            console.error('Error posting message to parent:', e);
+          </script>
+        `;
+          // Append script to the body or head. For simplicity, appending to end of body.
+          if (htmlContent.includes('</body>')) {
+            htmlContent = htmlContent.replace('</body>', postMessageScript + '</body>');
+          } else {
+            htmlContent += postMessageScript;
           }
-        </script>
-      `;
-        // Append script to the body or head. For simplicity, appending to end of body.
-        if (htmlContent.includes('</body>')) {
-          htmlContent = htmlContent.replace('</body>', postMessageScript + '</body>');
-        } else {
-          htmlContent += postMessageScript;
         }
       }
     }
