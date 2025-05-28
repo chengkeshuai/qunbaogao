@@ -144,7 +144,7 @@ export async function POST(request: NextRequest) {
       report_set_id: reportSetId,
       original_filename: file.name,
       r2_object_key: `report_sets/${reportSetId}/${file.name.replace(/[^a-zA-Z0-9_.-]+/g, '_')}`,
-      sort_order: index, // Ensure sort_order is included
+      order_in_set: index, // Use existing order_in_set column
     }));
 
     const { error: insertFilesError } = await supabaseAdmin

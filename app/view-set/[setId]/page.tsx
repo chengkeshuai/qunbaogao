@@ -10,7 +10,7 @@ interface ReportFile {
   original_filename: string;
   r2_object_key: string;
   created_at?: string;
-  sort_order?: number | null;
+  order_in_set?: number | null;
   // keywords?: string[]; // Temporarily removed
 }
 
@@ -85,8 +85,8 @@ export default function ViewSetPage() {
             setPasswordRequired(true);
             setPasswordPromptMessage(data.password_prompt_message || '此知识库受密码保护。');
             if (data.files && data.files.length > 0) {
-              // Sort by sort_order, then by original_filename as a fallback
-              const sortedFiles = [...data.files].sort((a, b) => (a.sort_order ?? Infinity) - (b.sort_order ?? Infinity) || a.original_filename.localeCompare(b.original_filename));
+              // Sort by order_in_set, then by original_filename as a fallback
+              const sortedFiles = [...data.files].sort((a, b) => (a.order_in_set ?? Infinity) - (b.order_in_set ?? Infinity) || a.original_filename.localeCompare(b.original_filename));
               setCurrentFileKey(sortedFiles[0].r2_object_key);
             } else {
               setCurrentFileKey(null);
@@ -96,8 +96,8 @@ export default function ViewSetPage() {
             setPasswordRequired(false);
             setPasswordPromptMessage(null);
             if (data.files && data.files.length > 0) {
-              // Sort by sort_order, then by original_filename as a fallback
-              const sortedFiles = [...data.files].sort((a, b) => (a.sort_order ?? Infinity) - (b.sort_order ?? Infinity) || a.original_filename.localeCompare(b.original_filename));
+              // Sort by order_in_set, then by original_filename as a fallback
+              const sortedFiles = [...data.files].sort((a, b) => (a.order_in_set ?? Infinity) - (b.order_in_set ?? Infinity) || a.original_filename.localeCompare(b.original_filename));
               setCurrentFileKey(sortedFiles[0].r2_object_key);
             } else {
               setCurrentFileKey(null);
@@ -188,8 +188,8 @@ export default function ViewSetPage() {
     return <div className="flex justify-center items-center h-screen"><p className="text-lg text-gray-600">未找到报告集。</p></div>;
   }
   
-  // Sort files by sort_order for display, then by original_filename as a fallback
-  const sortedFiles = [...reportSet.files].sort((a, b) => (a.sort_order ?? Infinity) - (b.sort_order ?? Infinity) || a.original_filename.localeCompare(b.original_filename));
+  // Sort files by order_in_set for display, then by original_filename as a fallback
+  const sortedFiles = [...reportSet.files].sort((a, b) => (a.order_in_set ?? Infinity) - (b.order_in_set ?? Infinity) || a.original_filename.localeCompare(b.original_filename));
 
   return (
     <div className="flex h-screen antialiased text-gray-900 bg-gray-50">

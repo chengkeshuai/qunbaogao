@@ -9,7 +9,7 @@ interface ReportFile {
   original_filename: string;
   r2_object_key: string;
   created_at: string;
-  sort_order: number | null;
+  order_in_set: number | null;
 }
 
 export async function GET(
@@ -58,9 +58,9 @@ export async function GET(
         // Fetch files list to display in the sidebar even before password entry.
         const { data: filesData, error: filesError } = await supabaseAdmin
           .from('report_files')
-          .select('id, original_filename, r2_object_key, created_at, sort_order')
+          .select('id, original_filename, r2_object_key, created_at, order_in_set')
           .eq('report_set_id', setId)
-          .order('sort_order');
+          .order('order_in_set');
         
         let filesForPrompt: ReportFile[] = [];
         if (filesError) {
@@ -85,9 +85,9 @@ export async function GET(
     // If not password protected OR password is valid, proceed to fetch full details
     const { data: files, error: filesError } = await supabaseAdmin
       .from('report_files')
-      .select('id, original_filename, r2_object_key, created_at, sort_order')
+      .select('id, original_filename, r2_object_key, created_at, order_in_set')
       .eq('report_set_id', setId)
-      .order('sort_order');
+      .order('order_in_set');
 
     if (filesError) {
       console.error('Error fetching files for report set:', filesError.message);
