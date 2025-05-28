@@ -206,7 +206,7 @@ export default function Home() {
                 <div className="p-8 lg:p-12">
                   <h2 className="text-4xl font-bold text-gray-900 mb-6">关于群报告</h2>
                   <p className="text-lg text-gray-700 mb-4">
-                    群报告是一个免费的HTML可视化转网页平台，无需复杂部署，简单几步即可将HTML代码变成可访问的网页。支持一次上传多个HTML文件，自动生成集合知识库。支持设置访问密码，保护知识产权。
+                    群报告是一个免费的HTML可视化转网页平台，无需复杂部署，简单几步即可将HTML代码变成可访问的网页。支持一次上传多个HTML文件，多个文件会自动生成知识库合集。
                   </p>
                   <p className="text-lg text-gray-700 mb-6">
                     我们使用先进的云存储技术，确保您的网页安全、稳定且持久可访问，让分享和展示变得简单高效。
@@ -217,13 +217,13 @@ export default function Home() {
                       <svg className="h-6 w-6 text-[#2dc100] mt-1 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                       </svg>
-                      <span className="text-base text-gray-700">简单易用的上传界面</span>
+                      <span className="text-base text-gray-700">支持生成知识库合集</span>
                     </div>
                     <div className="flex items-start">
                       <svg className="h-6 w-6 text-[#2dc100] mt-1 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                       </svg>
-                      <span className="text-base text-gray-700">快速部署到云端</span>
+                      <span className="text-base text-gray-700">支持设置访问密码</span>
                     </div>
                     <div className="flex items-start">
                       <svg className="h-6 w-6 text-[#2dc100] mt-1 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
