@@ -83,6 +83,7 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { filepath: string[] } } // Changed from filename: string to filepath: string[]
 ) {
+  console.log(`[API View] Request URL: ${request.url}`); // LOG REQUEST URL
   const filepathParts = params.filepath;
   if (!filepathParts || filepathParts.length === 0) {
     return new NextResponse('Filepath is required', { status: 400 });
@@ -105,12 +106,17 @@ export async function GET(
     // The r2Key constructed from filepathParts will be the actual key in the bucket.
     const metadata = await getObjectMetadata(r2Key); 
     const passwordHash = metadata?.['password-hash'];
+    console.log(`[API View] r2Key: ${r2Key}, Found passwordHash in metadata: ${!!passwordHash}`); // LOG METADATA CHECK
 
     if (passwordHash) {
       const url = new URL(request.url);
       const providedPassword = url.searchParams.get('password');
+      const tokenFromQuery = url.searchParams.get('token'); // From parent page
       const isInsideKnowledgeBase = url.searchParams.get('isInsideKnowledgeBase') === 'true';
       
+      const actualPasswordToVerify = tokenFromQuery || providedPassword;
+      console.log(`[API View] Password check: tokenFromQuery=${tokenFromQuery}, providedPasswordFromForm=${providedPassword}, actualToVerify=${actualPasswordToVerify}, isInsideKB=${isInsideKnowledgeBase}`); // LOG PASSWORD PARAMS
+
       let knowledgeBaseTitle: string | undefined = undefined;
       // Extract setId if the r2Key is for a report set file
       if (r2Key.startsWith('report_sets/')) {
@@ -143,16 +149,18 @@ export async function GET(
         }
       }
 
-      if (!providedPassword) {
+      if (!actualPasswordToVerify) {
+        console.log('[API View] No password/token provided, rendering prompt.'); // LOG PROMPT CASE
         return new NextResponse(getPasswordPromptHTML(r2Key, undefined, knowledgeBaseTitle), { 
           status: 200, 
           headers: { 'Content-Type': 'text/html; charset=utf-8' }
         });
       }
 
-      const providedPasswordTrimmed = providedPassword.trim();
+      const providedPasswordTrimmed = actualPasswordToVerify.trim();
       const providedPasswordHash = crypto.createHash('sha256').update(providedPasswordTrimmed).digest('hex');
       if (providedPasswordHash !== passwordHash) {
+        console.log('[API View] Password/token mismatch. Rendering prompt with error.'); // LOG MISMATCH
         return new NextResponse(getPasswordPromptHTML(r2Key, '密码错误，请重试。', knowledgeBaseTitle), { 
           status: 200, 
           headers: { 'Content-Type': 'text/html; charset=utf-8' }
@@ -188,27 +196,31 @@ export async function GET(
     // inject script to send password to parent window.
     const urlForPostMessageCheck = new URL(request.url);
     if (passwordHash && 
-        urlForPostMessageCheck.searchParams.get('password') && 
-        crypto.createHash('sha256').update(urlForPostMessageCheck.searchParams.get('password')!.trim()).digest('hex') === passwordHash &&
         urlForPostMessageCheck.searchParams.get('isInsideKnowledgeBase') === 'true'
     ) {
-      const validatedPassword = urlForPostMessageCheck.searchParams.get('password')!.trim();
-      const postMessageScript = `
+      // Check if *any* password was successfully validated for this request.
+      // This could be from a form submission (params.get('password')) or a token (params.get('token'))
+      const validatedPasswordInput = urlForPostMessageCheck.searchParams.get('token') || urlForPostMessageCheck.searchParams.get('password');
+      if (validatedPasswordInput && crypto.createHash('sha256').update(validatedPasswordInput.trim()).digest('hex') === passwordHash) {
+        const validatedPasswordForPostMessage = validatedPasswordInput.trim();
+        console.log(`[API View] Password validated. Injecting postMessage script with token: ${validatedPasswordForPostMessage}`); // LOG POSTMESSAGE INJECTION
+        const postMessageScript = `
         <script>
           try {
             if (window.parent && window.parent !== window) {
-              window.parent.postMessage({ type: 'knowledgeBasePasswordValidated', token: '${validatedPassword.replace(/'/g, '\'')}' }, '*');
+              window.parent.postMessage({ type: 'knowledgeBasePasswordValidated', token: '${validatedPasswordForPostMessage.replace(/'/g, '\'')}' }, '*');
             }
           } catch (e) {
             console.error('Error posting message to parent:', e);
           }
         </script>
       `;
-      // Append script to the body or head. For simplicity, appending to end of body.
-      if (htmlContent.includes('</body>')) {
-        htmlContent = htmlContent.replace('</body>', postMessageScript + '</body>');
-      } else {
-        htmlContent += postMessageScript;
+        // Append script to the body or head. For simplicity, appending to end of body.
+        if (htmlContent.includes('</body>')) {
+          htmlContent = htmlContent.replace('</body>', postMessageScript + '</body>');
+        } else {
+          htmlContent += postMessageScript;
+        }
       }
     }
 

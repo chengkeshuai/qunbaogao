@@ -50,6 +50,7 @@ export default function ViewSetPage() {
   const [userProvidedToken, setUserProvidedToken] = useState<string | null>(null);
   const [knowledgeBaseHadPasswordProtection, setKnowledgeBaseHadPasswordProtection] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  console.log(`[ViewSetPage] Initial state: userProvidedToken=${userProvidedToken}, kbHadPasswordProtection=${knowledgeBaseHadPasswordProtection}`); // LOG INITIAL STATE
 
   useEffect(() => {
     const urlToken = searchParams.get('token');
@@ -80,12 +81,15 @@ export default function ViewSetPage() {
           }
 
           const data: ReportSetDetails = await response.json();
+          console.log("[ViewSetPage] Fetched report set details:", JSON.stringify(data)); // LOG API RESPONSE
+          console.log(`[ViewSetPage] Before update: passwordRequired=${passwordRequired}, kbHadPasswordProtection=${knowledgeBaseHadPasswordProtection}, userToken=${userProvidedToken}`); // LOG BEFORE STATE UPDATE
 
           if (data.password_required) {
             setReportSet(data);
             setPasswordRequired(true);
             setKnowledgeBaseHadPasswordProtection(true);
             setPasswordPromptMessage(data.password_prompt_message || '此知识库受密码保护。');
+            console.log("[ViewSetPage] Case: Password Required by API"); // LOG CASE
             if (data.files && data.files.length > 0) {
               // Sort by order_in_set, then by original_filename as a fallback
               const sortedFiles = [...data.files].sort((a, b) => (a.order_in_set ?? Infinity) - (b.order_in_set ?? Infinity) || a.original_filename.localeCompare(b.original_filename));
@@ -97,6 +101,7 @@ export default function ViewSetPage() {
             setReportSet(data);
             setPasswordRequired(false);
             setPasswordPromptMessage(null);
+            console.log("[ViewSetPage] Case: Password NOT Required by API (or token valid)"); // LOG CASE
             if (data.files && data.files.length > 0) {
               // Sort by order_in_set, then by original_filename as a fallback
               const sortedFiles = [...data.files].sort((a, b) => (a.order_in_set ?? Infinity) - (b.order_in_set ?? Infinity) || a.original_filename.localeCompare(b.original_filename));
@@ -111,6 +116,7 @@ export default function ViewSetPage() {
           setReportSet(null);
         }
         setIsLoading(false);
+        // Log state AFTER update (note: direct log after setState might not show updated value due to async nature, better to log at start of render or next effect)
       };
       fetchReportSetDetails();
     }
@@ -119,16 +125,9 @@ export default function ViewSetPage() {
   // Effect to listen for password token from iframe
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
-      // Basic security: check origin if possible, though for file:// or sandboxed iframes it might be null
-      // if (event.origin !== window.location.origin) { 
-      //   console.warn("Message from untrusted origin ignored:", event.origin);
-      //   return;
-      // }
-
       if (event.data && event.data.type === 'knowledgeBasePasswordValidated' && event.data.token) {
-        console.log('Received password token from iframe:', event.data.token);
+        console.log('[ViewSetPage] Received postMessage with token:', event.data.token); // LOG POSTMESSAGE
         setUserProvidedToken(event.data.token);
-        // Optionally, clear password_required and prompt message if they were set
         setPasswordRequired(false);
         setPasswordPromptMessage(null);
       }
@@ -264,6 +263,7 @@ export default function ViewSetPage() {
             src={(() => {
               let srcUrl = `/api/view/${currentFileKey}`;
               const queryParams = [];
+              console.log(`[ViewSetPage] Building iframe src: currentFileKey=${currentFileKey}, userToken=${userProvidedToken}, kbHadPasswordProtection=${knowledgeBaseHadPasswordProtection}`); // LOG IFRAME SRC PARAMS
               if (userProvidedToken && knowledgeBaseHadPasswordProtection) {
                 queryParams.push(`token=${encodeURIComponent(userProvidedToken)}`);
               }
@@ -272,6 +272,7 @@ export default function ViewSetPage() {
               if (queryParams.length > 0) {
                 srcUrl += '?' + queryParams.join('&');
               }
+              console.log("[ViewSetPage] Final iframe src:", srcUrl); // LOG FINAL IFRAME SRC
               return srcUrl;
             })()}
             title={reportSet?.files.find(f => f.r2_object_key === currentFileKey)?.original_filename || '文件内容'}
