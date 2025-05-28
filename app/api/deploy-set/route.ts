@@ -3,6 +3,7 @@ import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSupabaseAdmin } from '@/lib/supabaseClient';
 import crypto from 'crypto';
 import { uploadToR2 } from '@/app/lib/r2';
+import { R2_BUCKET_NAME } from '@/app/lib/r2';
 // import striptags from 'striptags';
 // import nodejieba from 'nodejieba';
 
@@ -19,12 +20,22 @@ const CHINESE_STOP_WORDS = new Set([
 // 加载nodejieba默认词典 (如果需要自定义词典，请查阅nodejieba文档)
 // nodejieba.load(); // 通常在模块加载时自动完成，但显式调用也可以
 
-const s3Client = new S3Client({
-  region: process.env.CLOUDFLARE_R2_REGION || 'auto',
-  endpoint: `https://${process.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+// Ensure R2 environment variables are loaded
+const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID;
+const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID;
+const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY;
+
+if (!R2_ACCOUNT_ID || !R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY || !R2_BUCKET_NAME) {
+  console.error("Cloudflare R2 environment variables are not fully set for deploy-set route.");
+  // Potentially throw an error or return a specific response if config is incomplete
+}
+
+const S3 = new S3Client({
+  region: "auto",
+  endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
   credentials: {
-    accessKeyId: process.env.CLOUDFLARE_R2_ACCESS_KEY_ID || '',
-    secretAccessKey: process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY || '',
+    accessKeyId: R2_ACCESS_KEY_ID!,
+    secretAccessKey: R2_SECRET_ACCESS_KEY!,
   },
 });
 
@@ -92,165 +103,94 @@ function extractKeywords(htmlContent: string): string[] {
 */
 
 export async function POST(request: NextRequest) {
-  try {
-    const supabaseAdmin = getSupabaseAdmin();
-    if (!supabaseAdmin) {
-      return NextResponse.json(
-        { error: 'Supabase admin client is not initialized. Check server logs.' },
-        { status: 500 }
-      );
-    }
+  const supabaseAdmin = getSupabaseAdmin();
+  if (!supabaseAdmin) {
+    return NextResponse.json({ error: 'Supabase client not initialized' }, { status: 500 });
+  }
 
+  try {
     const formData = await request.formData();
-    const title = formData.get('title') as string | null;
+    const title = formData.get('title') as string || 'Untitled Report Set';
     const password = formData.get('password') as string | null;
-    const filesInfoString = formData.get('filesInfo') as string | null;
+    const filesInfoString = formData.get('filesInfo') as string;
 
     if (!filesInfoString) {
-      return NextResponse.json(
-        { error: 'Missing filesInfo in request body' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Files information is missing' }, { status: 400 });
+    }
+    const filesInfo: Array<{ name: string; content: string }> = JSON.parse(filesInfoString);
+
+    if (!filesInfo || filesInfo.length === 0) {
+      return NextResponse.json({ error: 'No files provided for the report set' }, { status: 400 });
     }
 
-    let files: UploadedFile[];
-    try {
-      files = JSON.parse(filesInfoString);
-    } catch (e) {
-      return NextResponse.json(
-        { error: 'Invalid filesInfo format. Expected a JSON string.' },
-        { status: 400 }
-      );
-    }
-
-    if (!files || !Array.isArray(files) || files.length === 0) {
-      return NextResponse.json(
-        { error: 'filesInfo must be a non-empty array of files.' },
-        { status: 400 }
-      );
-    }
-
-    // Validate each file object in the files array (optional, but good practice)
-    for (const file of files) {
-      if (typeof file.name !== 'string' || typeof file.content !== 'string') {
-        return NextResponse.json(
-          { error: 'Each file in filesInfo must have a name (string) and content (string).' },
-          { status: 400 }
-        );
-      }
-    }
-
-    // 1. Create Report Set in Supabase
-    let reportSetPasswordHash: string | null = null;
+    let passwordHash: string | null = null;
     if (password && password.trim().length > 0) {
-      reportSetPasswordHash = crypto.createHash('sha256').update(password.trim()).digest('hex');
+      passwordHash = crypto.createHash('sha256').update(password.trim()).digest('hex');
     }
 
     const { data: reportSetData, error: reportSetError } = await supabaseAdmin
       .from('report_sets')
-      .insert({
-        title: title?.trim() || null,
-        password_hash: reportSetPasswordHash,
-        // user_id: null, // For future user integration
-      })
-      .select('id, title')
+      .insert([{ title, password_hash: passwordHash }])
+      .select('id')
       .single();
 
     if (reportSetError || !reportSetData) {
       console.error('Error creating report set:', reportSetError);
-      return NextResponse.json(
-        { error: '创建报告集失败: ' + (reportSetError?.message || '未知错误') },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to create report set' }, { status: 500 });
+    }
+    const reportSetId = reportSetData.id;
+
+    const filesToInsert = filesInfo.map((file, index) => ({
+      report_set_id: reportSetId,
+      original_filename: file.name,
+      r2_object_key: `report_sets/${reportSetId}/${file.name.replace(/[^a-zA-Z0-9_.-]+/g, '_')}`,
+      sort_order: index, // Ensure sort_order is included
+    }));
+
+    const { error: insertFilesError } = await supabaseAdmin
+      .from('report_files')
+      .insert(filesToInsert);
+
+    if (insertFilesError) {
+      console.error('Error inserting files metadata to Supabase:', insertFilesError);
+      // Attempt to clean up the created report_set entry if files fail to insert
+      await supabaseAdmin.from('report_sets').delete().eq('id', reportSetId);
+      return NextResponse.json({ error: 'Failed to save files metadata' }, { status: 500 });
     }
 
-    const setId = reportSetData.id;
-    const finalSetTitle = reportSetData.title;
-
-    // 2. Process and upload each file
-    const uploadedFileRecords = [];
-
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i]; // file is now from the parsed filesInfo array
-      let htmlContent = file.content.trim();
-
-      // Normalize HTML if not a full document
-      if (!htmlContent.includes('<html') || !htmlContent.includes('</html>')) {
-        htmlContent = `
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${file.name || 'HTML预览页面'}</title>
-</head>
-<body>
-  ${htmlContent}
-</body>
-</html>
-        `.trim();
+    // Upload files to R2
+    for (const file of filesInfo) {
+      const r2Key = `report_sets/${reportSetId}/${file.name.replace(/[^a-zA-Z0-9_.-]+/g, '_')}`;
+      try {
+        await S3.send(new PutObjectCommand({
+          Bucket: R2_BUCKET_NAME,
+          Key: r2Key,
+          Body: file.content,
+          ContentType: 'text/html; charset=utf-8',
+          Metadata: passwordHash ? { 'password-hash': passwordHash } : undefined,
+        }));
+      } catch (r2Error) {
+        console.error(`Error uploading ${file.name} to R2:`, r2Error);
+        // Rollback: delete already uploaded files for this set and Supabase entries
+        // This part can be complex and might need a more robust transaction-like mechanism
+        // For now, just log and return an error
+        return NextResponse.json({ error: `Failed to upload ${file.name} to R2` }, { status: 500 });
       }
-
-      const htmlBuffer = Buffer.from(htmlContent, 'utf-8');
-      const sanitizedOriginalName = file.name.replace(/[^a-zA-Z0-9_.-]/g, '_');
-      const uniqueFileR2Key = `report_sets/${setId}/${Date.now()}-${Math.random().toString(36).substring(2, 10)}-${sanitizedOriginalName}`;
-
-      const r2Url = await uploadToR2(
-        uniqueFileR2Key,
-        htmlBuffer,
-        'text/html'
-      );
-
-      if (!r2Url) {
-        console.error(`Failed to upload file ${file.name} to R2 for set ${setId}`);
-        continue; 
-      }
-
-      const { error: fileInsertError } = await supabaseAdmin
-        .from('report_files')
-        .insert({
-          report_set_id: setId,
-          original_filename: file.name,
-          r2_object_key: uniqueFileR2Key,
-          order_in_set: i,
-        });
-
-      if (fileInsertError) {
-        console.error(`Error inserting file record ${file.name} for set ${setId}:`, fileInsertError);
-        continue;
-      }
-      uploadedFileRecords.push({ name: file.name, r2_object_key: uniqueFileR2Key });
-    }
-    
-    if (uploadedFileRecords.length === 0 && files.length > 0) {
-        console.error(`No files were successfully processed for set ${setId}. Deleting the set.`);
-        await supabaseAdmin.from('report_sets').delete().match({ id: setId });
-        return NextResponse.json(
-            { error: '报告集中的所有文件均未能成功处理，报告集未创建。' },
-            { status: 500 }
-        );
     }
 
-    const viewSetUrl = `/view-set/${setId}`;
+    const appViewUrl = `/view-set/${reportSetId}`;
     return NextResponse.json({
-      url: viewSetUrl,
-      setId: setId,
-      title: finalSetTitle,
-      files: uploadedFileRecords.map(f => ({ name: f.name })),
-      hasPassword: !!reportSetPasswordHash,
-      message: `报告集创建成功，包含 ${uploadedFileRecords.length} 个文件。`
+      message: 'Report set created and files uploaded successfully!',
+      url: appViewUrl,
+      isPublic: !passwordHash,
+      hasPassword: !!passwordHash,
+      isSet: true,
+      files: filesInfo.map(f => ({ name: f.name })),
+      title: title,
     });
 
-  } catch (error) {
-    console.error('创建报告集失败:', error);
-    let errorMessage = '创建报告集过程中发生未知错误';
-    if (error instanceof Error) {
-      errorMessage = error.message;
-    }
-    // Ensure a response is always returned in the catch block
-    return NextResponse.json(
-      { error: errorMessage },
-      { status: 500 }
-    );
+  } catch (error: any) {
+    console.error('Error in /api/deploy-set POST handler:', error);
+    return NextResponse.json({ error: error.message || 'An unexpected error occurred' }, { status: 500 });
   }
 } 
