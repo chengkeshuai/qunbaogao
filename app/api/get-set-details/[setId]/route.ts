@@ -67,7 +67,7 @@ export async function GET(
     // 3. Fetch files in the report set, ordered by order_in_set
     const { data: files, error: filesError } = await supabaseAdmin
       .from('report_files')
-      .select('id, original_filename, r2_object_key, order_in_set, keywords')
+      .select('id, original_filename, r2_object_key, order_in_set')
       .eq('report_set_id', setId)
       .order('order_in_set', { ascending: true });
 
