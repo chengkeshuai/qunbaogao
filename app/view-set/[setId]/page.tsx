@@ -48,7 +48,6 @@ export default function ViewSetPage() {
   const [currentFileKey, setCurrentFileKey] = useState<string | null>(null);
   const [showPasswordInput, setShowPasswordInput] = useState(true);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     if (setId) {
@@ -73,8 +72,8 @@ export default function ViewSetPage() {
           setShowPasswordInput(false);
           setError(null);
           if (data.files && data.files.length > 0) {
-            // 默认选中第一个文件
-            // setCurrentFileKey(data.files[0].r2_object_key);
+            const sortedInitialFiles = [...data.files].sort((a, b) => a.order_in_set - b.order_in_set);
+            setCurrentFileKey(sortedInitialFiles[0].r2_object_key);
           }
         } catch (err: any) {
           setError(err.message || '加载报告集失败');
@@ -163,12 +162,6 @@ export default function ViewSetPage() {
   // Sort files by order_in_set for display
   const sortedFiles = [...reportSet.files].sort((a, b) => a.order_in_set - b.order_in_set);
 
-  // 根据搜索词过滤文件
-  const filteredFiles = sortedFiles.filter(file => {
-    const term = searchTerm.toLowerCase();
-    return file.original_filename.toLowerCase().includes(term);
-  });
-
   return (
     <div className="flex h-screen antialiased text-gray-900 bg-gray-50">
       {/* Sidebar */}
@@ -195,23 +188,11 @@ export default function ViewSetPage() {
             </button>
           </div>
 
-          {!isSidebarCollapsed && (
-            <div className="px-3 pt-3">
-              <input 
-                type="text"
-                placeholder="搜索文件..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className={`w-full px-3 py-1.5 ${SIDEBAR_TEXT_COLOR} bg-slate-50 border border-slate-300 rounded-md focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none text-sm placeholder-slate-400`}
-              />
-            </div>
-          )}
-
           <div className={`px-3 mt-2.5 flex-grow overflow-y-auto 
                          ${isSidebarCollapsed ? 'space-y-1 group-hover:space-y-1.5' : 'space-y-1.5'}
-                         ${isSidebarCollapsed && !searchTerm ? 'pr-0' : 'pr-1 mr-[-4px]'}`}>
-            {filteredFiles.length > 0 ? (
-              filteredFiles.map((file) => (
+                         ${isSidebarCollapsed ? 'pr-0' : 'pr-1 mr-[-4px]'}`}>
+            {sortedFiles.length > 0 ? (
+              sortedFiles.map((file) => (
                 <button
                   key={file.id}
                   onClick={() => setCurrentFileKey(file.r2_object_key)}
@@ -229,7 +210,7 @@ export default function ViewSetPage() {
             ) : (
               <p className={`px-3 py-2 text-sm ${SIDEBAR_TEXT_COLOR} italic 
                             ${isSidebarCollapsed ? 'hidden group-hover:block' : 'block'}`}>
-                {searchTerm ? '未找到匹配的文件。' : '没有文件。'}
+                没有文件。
               </p>
             )}
           </div>
@@ -249,14 +230,17 @@ export default function ViewSetPage() {
                      ${isSidebarCollapsed ? 'md:ml-16' : 'md:ml-64'}`}>
         {currentFileKey ? (
           <iframe
-            src={`/api/view/${currentFileKey}`}
-            title="HTML 内容预览"
-            className="w-full h-full border-none bg-white shadow-inner"
-            sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
-          />
+            src={`/api/view-file/${currentFileKey}${token ? '?token=' + token : ''}`}
+            className="w-full h-full border-none"
+            title="Report file content"
+          ></iframe>
         ) : (
-          <div className="w-full h-full flex justify-center items-center bg-white">
-            <p className="text-gray-500">请从左侧选择一个文件查看。</p>
+          <div className="flex justify-center items-center h-full">
+            <p className="text-lg text-gray-500">
+              {reportSet && reportSet.files.length > 0 
+                ? "请从左侧选择一个文件查看。" 
+                : "此报告集没有可查看的文件。"}
+            </p>
           </div>
         )}
       </div>

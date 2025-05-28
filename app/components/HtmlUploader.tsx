@@ -459,26 +459,6 @@ export default function HtmlUploader() {
             <button
               type="button"
               onClick={() => {
-                // 如果密码已设置且未通过验证，则不复制
-                if (deployedInfo.hasPassword && !deployedInfo.isPublic) {
-                  alert('请先验证密码');
-                  return;
-                }
-                let urlToCopy = deployedInfo.isSet ? deployedInfo.url : deployedInfo.r2Url!;
-                if (!urlToCopy.startsWith('http')) {
-                    urlToCopy = window.location.origin + urlToCopy;
-                }
-                navigator.clipboard.writeText(urlToCopy)
-                  .then(() => alert('源文件链接已复制!'))
-                  .catch(err => alert('无法复制链接: ' + err));
-              }}
-              className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300"
-            >
-              复制源文件链接
-            </button>
-            <button
-              type="button"
-              onClick={() => {
                   // 如果密码已设置且未通过验证，则不复制
                   if (deployedInfo.hasPassword && !deployedInfo.isPublic) {
                     alert('请先验证密码');
