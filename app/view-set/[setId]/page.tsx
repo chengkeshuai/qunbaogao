@@ -48,6 +48,7 @@ export default function ViewSetPage() {
   const [passwordRequired, setPasswordRequired] = useState(false);
   const [passwordPromptMessage, setPasswordPromptMessage] = useState<string | null>(null);
   const [userProvidedToken, setUserProvidedToken] = useState<string | null>(null);
+  const [knowledgeBaseHadPasswordProtection, setKnowledgeBaseHadPasswordProtection] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   useEffect(() => {
@@ -83,6 +84,7 @@ export default function ViewSetPage() {
           if (data.password_required) {
             setReportSet(data);
             setPasswordRequired(true);
+            setKnowledgeBaseHadPasswordProtection(true);
             setPasswordPromptMessage(data.password_prompt_message || '此知识库受密码保护。');
             if (data.files && data.files.length > 0) {
               // Sort by order_in_set, then by original_filename as a fallback
@@ -262,7 +264,7 @@ export default function ViewSetPage() {
             src={(() => {
               let srcUrl = `/api/view/${currentFileKey}`;
               const queryParams = [];
-              if (userProvidedToken && reportSet?.password_hash) {
+              if (userProvidedToken && knowledgeBaseHadPasswordProtection) {
                 queryParams.push(`token=${encodeURIComponent(userProvidedToken)}`);
               }
               queryParams.push('isInsideKnowledgeBase=true');
