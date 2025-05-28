@@ -459,11 +459,6 @@ export default function HtmlUploader() {
             <button
               type="button"
               onClick={() => {
-                  // 如果密码已设置且未通过验证，则不复制
-                  if (deployedInfo.hasPassword && !deployedInfo.isPublic) {
-                    alert('请先验证密码');
-                    return;
-                  }
                   let urlToCopy = deployedInfo.url;
                   if (!urlToCopy.startsWith('http')) {
                       urlToCopy = window.location.origin + urlToCopy;

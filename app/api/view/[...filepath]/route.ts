@@ -109,6 +109,7 @@ export async function GET(
     if (passwordHash) {
       const url = new URL(request.url);
       const providedPassword = url.searchParams.get('password');
+      const isInsideKnowledgeBase = url.searchParams.get('isInsideKnowledgeBase') === 'true';
       
       let knowledgeBaseTitle: string | undefined = undefined;
       // Extract setId if the r2Key is for a report set file
@@ -149,12 +150,18 @@ export async function GET(
         });
       }
 
-      const providedPasswordHash = crypto.createHash('sha256').update(providedPassword.trim()).digest('hex'); // ensure trim before hash
+      const providedPasswordTrimmed = providedPassword.trim();
+      const providedPasswordHash = crypto.createHash('sha256').update(providedPasswordTrimmed).digest('hex');
       if (providedPasswordHash !== passwordHash) {
         return new NextResponse(getPasswordPromptHTML(r2Key, '密码错误，请重试。', knowledgeBaseTitle), { 
           status: 200, 
           headers: { 'Content-Type': 'text/html; charset=utf-8' }
         });
+      }
+      // Password is correct, proceed to serve the file
+      // If inside knowledge base, prepare to postMessage the token (password) back to parent
+      if (isInsideKnowledgeBase) {
+        // We'll inject script later, after fetching the content
       }
     }
 
@@ -175,7 +182,35 @@ export async function GET(
       chunks.push(chunk);
     }
     const buffer = Buffer.concat(chunks);
-    const htmlContent = buffer.toString('utf-8');
+    let htmlContent = buffer.toString('utf-8');
+
+    // If password was successfully validated AND this is for a knowledge base view,
+    // inject script to send password to parent window.
+    const urlForPostMessageCheck = new URL(request.url);
+    if (passwordHash && 
+        urlForPostMessageCheck.searchParams.get('password') && 
+        crypto.createHash('sha256').update(urlForPostMessageCheck.searchParams.get('password')!.trim()).digest('hex') === passwordHash &&
+        urlForPostMessageCheck.searchParams.get('isInsideKnowledgeBase') === 'true'
+    ) {
+      const validatedPassword = urlForPostMessageCheck.searchParams.get('password')!.trim();
+      const postMessageScript = `
+        <script>
+          try {
+            if (window.parent && window.parent !== window) {
+              window.parent.postMessage({ type: 'knowledgeBasePasswordValidated', token: '${validatedPassword.replace(/'/g, '\'')}' }, '*');
+            }
+          } catch (e) {
+            console.error('Error posting message to parent:', e);
+          }
+        </script>
+      `;
+      // Append script to the body or head. For simplicity, appending to end of body.
+      if (htmlContent.includes('</body>')) {
+        htmlContent = htmlContent.replace('</body>', postMessageScript + '</body>');
+      } else {
+        htmlContent += postMessageScript;
+      }
+    }
 
     return new NextResponse(htmlContent, {
       status: 200,

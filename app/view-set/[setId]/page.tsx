@@ -9,18 +9,20 @@ interface ReportFile {
   id: string;
   original_filename: string;
   r2_object_key: string;
-  order_in_set: number;
-  // keywords?: string[]; // 字段已移除
+  created_at?: string;
+  sort_order?: number | null;
+  // keywords?: string[]; // Temporarily removed
 }
 
 interface ReportSetDetails {
   id: string;
   title: string;
   files: ReportFile[];
-  password_protected: boolean;
-  // user_id?: string | null; // 根据需要添加
-  // created_at: string;
-  // updated_at: string;
+  password_hash?: string; // Keep if needed for other logic, or remove if only password_required is used
+  password_required?: boolean; // New field from API
+  password_prompt_message?: string; // New field from API
+  created_at?: string;
+  user_id?: string;
 }
 
 const WECHAT_GREEN = '#2dc100';
@@ -35,61 +37,107 @@ const SELECTED_ITEM_TEXT = 'text-white';
 const HOVER_ITEM_BG = 'hover:bg-slate-300';
 
 export default function ViewSetPage() {
-  const params = useParams();
+  const params = useParams<{ setId: string }>();
   const searchParams = useSearchParams();
   const router = useRouter();
-  
-  const setId = params.setId as string;
-  const token = searchParams.get('token');
+  const { setId } = params;
 
-  const [isLoading, setIsLoading] = useState(true);
   const [reportSet, setReportSet] = useState<ReportSetDetails | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [currentFileKey, setCurrentFileKey] = useState<string | null>(null);
-  const [showPasswordInput, setShowPasswordInput] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
+  const [passwordRequired, setPasswordRequired] = useState(false);
+  const [passwordPromptMessage, setPasswordPromptMessage] = useState<string | null>(null);
+  const [userProvidedToken, setUserProvidedToken] = useState<string | null>(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
+  useEffect(() => {
+    const urlToken = searchParams.get('token');
+    if (urlToken) {
+      setUserProvidedToken(urlToken);
+    }
+  }, [searchParams, setId, router]);
 
   useEffect(() => {
     if (setId) {
       const fetchReportSetDetails = async () => {
         setIsLoading(true);
+        setPasswordRequired(false);
+        setPasswordPromptMessage(null);
+        setReportSet(null);
+
         try {
-          const url = token ? `/api/get-set-details/${setId}?token=${token}` : `/api/get-set-details/${setId}`;
+          const url = userProvidedToken ? `/api/get-set-details/${setId}?token=${userProvidedToken}` : `/api/get-set-details/${setId}`;
           const response = await fetch(url);
+
           if (!response.ok) {
-            if (response.status === 401 || response.status === 403) {
-              const errorData = await response.json();
-              setError(errorData.message || '需要密码或密码错误');
-              setShowPasswordInput(true); 
-            } else {
-              throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            setReportSet(null); 
+            const errorData = await response.json().catch(() => ({ message: '无法解析错误响应' }));
+            console.error("Error fetching report set details:", response.status, errorData);
+            setPasswordPromptMessage(errorData.message || `加载知识库失败 (状态: ${response.status})`);
+            setReportSet(null);
+            setIsLoading(false);
             return;
           }
+
           const data: ReportSetDetails = await response.json();
-          setReportSet(data);
-          setShowPasswordInput(false);
-          setError(null);
-          if (data.files && data.files.length > 0) {
-            const sortedInitialFiles = [...data.files].sort((a, b) => a.order_in_set - b.order_in_set);
-            setCurrentFileKey(sortedInitialFiles[0].r2_object_key);
+
+          if (data.password_required) {
+            setReportSet(data);
+            setPasswordRequired(true);
+            setPasswordPromptMessage(data.password_prompt_message || '此知识库受密码保护。');
+            if (data.files && data.files.length > 0) {
+              const sortedFiles = [...data.files].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.original_filename.localeCompare(b.original_filename));
+              setCurrentFileKey(sortedFiles[0].r2_object_key);
+            } else {
+              setCurrentFileKey(null);
+            }
+          } else {
+            setReportSet(data);
+            setPasswordRequired(false);
+            setPasswordPromptMessage(null);
+            if (data.files && data.files.length > 0) {
+              const sortedFiles = [...data.files].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.original_filename.localeCompare(b.original_filename));
+              setCurrentFileKey(sortedFiles[0].r2_object_key);
+            } else {
+              setCurrentFileKey(null);
+            }
           }
-        } catch (err: any) {
-          setError(err.message || '加载报告集失败');
+        } catch (e: any) {
+          console.error('获取知识库详情时发生网络或解析错误:', e);
+          setPasswordPromptMessage('无法连接到服务器或解析数据失败: ' + e.message);
           setReportSet(null);
-        } finally {
-          setIsLoading(false);
         }
+        setIsLoading(false);
       };
       fetchReportSetDetails();
     }
-  }, [setId, token]);
+  }, [setId, userProvidedToken]);
 
-  const handlePasswordSubmit = (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const password = (e.currentTarget.elements.namedItem('password') as HTMLInputElement).value;
-    router.push(`/view-set/${setId}?token=${encodeURIComponent(password)}`);
+  // Effect to listen for password token from iframe
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      // Basic security: check origin if possible, though for file:// or sandboxed iframes it might be null
+      // if (event.origin !== window.location.origin) { 
+      //   console.warn("Message from untrusted origin ignored:", event.origin);
+      //   return;
+      // }
+
+      if (event.data && event.data.type === 'knowledgeBasePasswordValidated' && event.data.token) {
+        console.log('Received password token from iframe:', event.data.token);
+        setUserProvidedToken(event.data.token);
+        // Optionally, clear password_required and prompt message if they were set
+        setPasswordRequired(false);
+        setPasswordPromptMessage(null);
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => {
+      window.removeEventListener('message', handleMessage);
+    };
+  }, []); // Empty dependency array, so it runs once on mount and cleans up on unmount
+
+  const handleFileSelect = (key: string) => {
+    setCurrentFileKey(key);
   };
 
   if (isLoading) {
@@ -117,50 +165,29 @@ export default function ViewSetPage() {
     );
   }
 
-  if (error && showPasswordInput && !reportSet) {
+  if (!reportSet && !isLoading && passwordPromptMessage) {
     return (
-      <div className="flex flex-col justify-center items-center h-screen bg-gray-100 p-4">
-        <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
-          <h2 className="text-2xl font-semibold text-center text-gray-700 mb-6">请输入访问密码</h2>
-          {error && <p className="text-red-500 text-sm text-center mb-4">{error}</p>}
-          <form onSubmit={handlePasswordSubmit} className="space-y-4">
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">密码</label>
-              <input
-                type="password"
-                name="password"
-                id="password"
-                required
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-              />
-            </div>
-            <button 
-              type="submit"
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-              提交
-            </button>
-          </form>
-          <div className="mt-6 text-center">
-            <Link href="/" legacyBehavior>
-              <a className="text-sm text-indigo-600 hover:text-indigo-500">返回首页</a>
-            </Link>
-          </div>
+      <div className="flex flex-col items-center justify-center h-screen bg-gray-100">
+        <div className="bg-white p-8 rounded-lg shadow-md text-center">
+          <h1 className="text-2xl font-semibold mb-4 text-red-600">访问出错</h1>
+          <p className="text-gray-700">{passwordPromptMessage || '无法加载知识库信息。'}</p>
+          <button
+            onClick={() => router.push('/')}
+            className="mt-6 px-4 py-2 bg-slate-600 text-white rounded-md hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-opacity-50"
+          >
+            返回群报告首页
+          </button>
         </div>
       </div>
     );
   }
 
-  if (error && !reportSet) { // General error, not password related, or password attempt failed but not showing input
-    return <div className="flex justify-center items-center h-screen"><p className="text-lg text-red-500">错误: {error}</p></div>;
-  }
-
-  if (!reportSet) {
+  if (!reportSet || !reportSet.files || reportSet.files.length === 0) {
     return <div className="flex justify-center items-center h-screen"><p className="text-lg text-gray-600">未找到报告集。</p></div>;
   }
   
   // Sort files by order_in_set for display
-  const sortedFiles = [...reportSet.files].sort((a, b) => a.order_in_set - b.order_in_set);
+  const sortedFiles = [...reportSet.files].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.original_filename.localeCompare(b.original_filename));
 
   return (
     <div className="flex h-screen antialiased text-gray-900 bg-gray-50">
@@ -230,9 +257,21 @@ export default function ViewSetPage() {
                      ${isSidebarCollapsed ? 'md:ml-16' : 'md:ml-64'}`}>
         {currentFileKey ? (
           <iframe
-            src={`/api/view/${currentFileKey}${token ? '?token=' + token : ''}`}
+            src={(() => {
+              let srcUrl = `/api/view/${currentFileKey}`;
+              const queryParams = [];
+              if (userProvidedToken && reportSet?.password_hash) {
+                queryParams.push(`token=${encodeURIComponent(userProvidedToken)}`);
+              }
+              queryParams.push('isInsideKnowledgeBase=true');
+              
+              if (queryParams.length > 0) {
+                srcUrl += '?' + queryParams.join('&');
+              }
+              return srcUrl;
+            })()}
+            title={reportSet?.files.find(f => f.r2_object_key === currentFileKey)?.original_filename || '文件内容'}
             className="w-full h-full border-none"
-            title="Report file content"
           ></iframe>
         ) : (
           <div className="flex justify-center items-center h-full">
