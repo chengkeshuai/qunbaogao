@@ -4,7 +4,6 @@ import { useState, useRef, useCallback } from 'react';
 // 假设你已经有某种方式引入了 Font Awesome，例如在全局CSS或Layout中
 // import '@fortawesome/fontawesome-free/css/all.min.css'; 
 import { ArrowUpCircleIcon, ArrowDownCircleIcon } from '@heroicons/react/24/outline'; // 引入Heroicons
-import ToastNotification from './ToastNotification'; // 引入自定义Toast组件
 
 interface UploadedFile {
   name: string;
@@ -23,7 +22,6 @@ export default function HtmlUploader() {
   const [password, setPassword] = useState('');
   const [showUploaderPassword, setShowUploaderPassword] = useState(true);
   const [knowledgeBaseTitle, setKnowledgeBaseTitle] = useState('');
-  const [toast, setToast] = useState({ show: false, message: '', type: 'info' as 'success' | 'error' | 'info' });
 
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setHtmlCode(e.target.value);
@@ -189,10 +187,6 @@ export default function HtmlUploader() {
     }
   }, [handleFileChange]);
 
-  const showToast = (message: string, type: 'success' | 'error' | 'info') => {
-    setToast({ show: true, message, type });
-  };
-
   return (
     <div className="w-full max-w-3xl mx-auto">
       <div className="flex rounded-md overflow-hidden mb-4">
@@ -219,13 +213,6 @@ export default function HtmlUploader() {
           粘贴单个代码
         </button>
       </div>
-
-      <ToastNotification 
-        message={toast.message}
-        type={toast.type}
-        show={toast.show}
-        onClose={() => setToast({ ...toast, show: false })}
-      />
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {(activeTab === 'upload' || activeTab === 'set') && (
@@ -455,25 +442,42 @@ export default function HtmlUploader() {
               {deployedInfo.isSet ? '访问知识库' : '访问网页'}
             </a>
             <button
+              type="button"
               onClick={() => {
-                if (deployedInfo && deployedInfo.url) { 
-                  let urlToCopy = deployedInfo.url;
-                  if (!urlToCopy.startsWith('http')) {
-                    urlToCopy = window.location.origin + urlToCopy;
-                  }
-                  navigator.clipboard.writeText(urlToCopy)
-                    .then(() => {
-                      showToast('链接已复制到剪贴板', 'success');
-                    })
-                    .catch(err => {
-                      console.error('复制失败:', err);
-                      showToast('复制失败，请重试', 'error');
-                    });
-                } else {
-                  showToast('无法复制链接，信息不完整。', 'error');
+                // 如果密码已设置且未通过验证，则不复制
+                if (deployedInfo.hasPassword && !deployedInfo.isPublic) {
+                  alert('请先验证密码');
+                  return;
                 }
+                let urlToCopy = deployedInfo.isSet ? deployedInfo.url : deployedInfo.r2Url!;
+                if (!urlToCopy.startsWith('http')) {
+                    urlToCopy = window.location.origin + urlToCopy;
+                }
+                navigator.clipboard.writeText(urlToCopy)
+                  .then(() => alert('源文件链接已复制!'))
+                  .catch(err => alert('无法复制链接: ' + err));
               }}
               className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300"
+            >
+              复制源文件链接
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                  // 如果密码已设置且未通过验证，则不复制
+                  if (deployedInfo.hasPassword && !deployedInfo.isPublic) {
+                    alert('请先验证密码');
+                    return;
+                  }
+                  let urlToCopy = deployedInfo.url;
+                  if (!urlToCopy.startsWith('http')) {
+                      urlToCopy = window.location.origin + urlToCopy;
+                  }
+                  navigator.clipboard.writeText(urlToCopy)
+                    .then(() => alert('链接已复制!')) 
+                    .catch(err => alert('无法复制链接: ' + err));
+              }}
+              className="px-4 py-2 bg-[#2dc100] text-white rounded-lg hover:bg-[#249c00] focus:outline-none"
             >
               复制链接
             </button>
