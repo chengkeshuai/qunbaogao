@@ -24,7 +24,6 @@ const S3 = new S3Client({
 function getPasswordPromptHTML(filepathForFormAction: string, error?: string, knowledgeBaseTitle?: string): string {
   const WECHAT_GREEN = '#2dc100';
   const WECHAT_GREEN_HOVER = '#249c00';
-  // const displayFilename = filepathForFormAction.split('/').pop() || filepathForFormAction;
 
   return `
 <!DOCTYPE html>
@@ -47,7 +46,7 @@ function getPasswordPromptHTML(filepathForFormAction: string, error?: string, kn
                  class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-[${WECHAT_GREEN}] focus:border-[${WECHAT_GREEN}] sm:text-sm pr-10">
           <button type="button" id="togglePasswordVisibility" 
                   class="absolute inset-y-0 right-0 px-3 flex items-center text-sm text-gray-500 hover:text-gray-700 focus:outline-none"
-                  aria-label="隐藏密码"> {/* Initial state is text, so button should show "Hide" action first */}
+                  aria-label="隐藏密码">
             <svg id="eyeIconClosed" class="h-5 w-5 hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a9.97 9.97 0 01-1.563 3.029m0 0l3.291 3.291M3 3l18 18" /></svg>
             <svg id="eyeIconOpen" class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
           </button>
@@ -66,14 +65,12 @@ function getPasswordPromptHTML(filepathForFormAction: string, error?: string, kn
     const eyeIconOpen = document.getElementById('eyeIconOpen');
     const eyeIconClosed = document.getElementById('eyeIconClosed');
     if (passwordInput && toggleButton && eyeIconOpen && eyeIconClosed) {
-      // Initial state: password type is 'text', so open eye is shown, closed eye is hidden.
-      // The button's aria-label is set to "隐藏密码" (Hide password).
       toggleButton.addEventListener('click', function() {
         const isText = passwordInput.getAttribute('type') === 'text';
         passwordInput.setAttribute('type', isText ? 'password' : 'text');
         this.setAttribute('aria-label', isText ? '显示密码' : '隐藏密码');
-        eyeIconOpen.classList.toggle('hidden', isText);      // if it becomes password, hide open eye
-        eyeIconClosed.classList.toggle('hidden', !isText);   // if it becomes password, show closed eye
+        eyeIconOpen.classList.toggle('hidden', isText);
+        eyeIconClosed.classList.toggle('hidden', !isText);
       });
     }
   </script>
@@ -116,20 +113,30 @@ export async function GET(
       let knowledgeBaseTitle: string | undefined = undefined;
       // Extract setId if the r2Key is for a report set file
       if (r2Key.startsWith('report_sets/')) {
-        const parts = r2Key.split('/'); // e.g., ['report_sets', 'set_id', 'filename']
+        const parts = r2Key.split('/');
         if (parts.length >= 2) {
           const setId = parts[1];
-          // Dynamically import getSupabaseAdmin only if needed
+          // Ensure getSupabaseAdmin is only imported and called if supabaseAdmin is not already defined
+          // This check might be redundant if getSupabaseAdmin() itself handles initialization logic well.
           const { getSupabaseAdmin } = await import('@/lib/supabaseClient');
-          const supabaseAdmin = getSupabaseAdmin();
+          const supabaseAdmin = getSupabaseAdmin(); // Call it to get the client
           if (supabaseAdmin) {
-            const { data: setData, error: setError } = await supabaseAdmin
-              .from('report_sets')
-              .select('title')
-              .eq('id', setId)
-              .single();
-            if (setData) {
-              knowledgeBaseTitle = setData.title || undefined;
+            try {
+                const { data: setData, error: dbError } = await supabaseAdmin
+                .from('report_sets')
+                .select('title')
+                .eq('id', setId)
+                .single();
+              
+              if (dbError) {
+                console.error(`Error fetching report set title for ${setId}:`, dbError.message);
+                // knowledgeBaseTitle will remain undefined, which is acceptable
+              }
+              if (setData) {
+                knowledgeBaseTitle = setData.title || undefined;
+              }
+            } catch (e) {
+                console.error(`Exception fetching report set title for ${setId}:`, e);
             }
           }
         }
@@ -142,7 +149,7 @@ export async function GET(
         });
       }
 
-      const providedPasswordHash = crypto.createHash('sha256').update(providedPassword).digest('hex');
+      const providedPasswordHash = crypto.createHash('sha256').update(providedPassword.trim()).digest('hex'); // ensure trim before hash
       if (providedPasswordHash !== passwordHash) {
         return new NextResponse(getPasswordPromptHTML(r2Key, '密码错误，请重试。', knowledgeBaseTitle), { 
           status: 200, 
