@@ -42,7 +42,7 @@ export default function Home() {
           <div className="text-center mb-12">
             <h1 className="text-4xl font-bold text-gray-900 mb-4">HTML代码转可访问网页</h1>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              上传或粘贴您的HTML代码，我们将为您生成一个可在多端设备访问的网页，并提供专属链接。
+              上传或粘贴您的HTML代码，我们将为您生成一个可在多端设备访问的网页，并提供专属链接。聊天记录不会转HTML？这里有教程。
             </p>
           </div>
           
@@ -80,7 +80,7 @@ export default function Home() {
                   </svg>
                 </div>
                 <h3 className="text-xl font-medium text-gray-900 mb-2">一键部署</h3>
-                <p className="text-base text-gray-600">点击&quot;部署网页&quot;按钮，系统自动处理并部署</p>
+                <p className="text-base text-gray-600">点击&quot;部署网页&quot;按钮，系统自动处理并部署，可设置访问密码</p>
               </div>
 
               {/* 连接线 */}
@@ -96,7 +96,7 @@ export default function Home() {
                   </svg>
                 </div>
                 <h3 className="text-xl font-medium text-gray-900 mb-2">分享访问</h3>
-                <p className="text-base text-gray-600">获取专属链接，一键分享给他人或多端访问</p>
+                <p className="text-base text-gray-600">获取专属链接，一键分享给他人，支持多终端访问</p>
               </div>
             </div>
           </div>
@@ -111,11 +111,11 @@ export default function Home() {
                   <i className="fas fa-users text-4xl"></i>
                 </div>
                 <h3 className="text-2xl lg:text-3xl font-semibold text-gray-900 mb-4">社群管理</h3>
-                <p className="text-gray-600 mb-6 flex-grow">作为社群管理者，您可以将重要的群聊内容和思路整理成网页，方便成员回顾和新成员快速了解历史讨论内容。</p>
+                <p className="text-gray-600 mb-6 flex-grow">将重要的群聊内容按日期整理成网页，专属链接在群里置顶，方便成员回顾和新成员快速了解历史讨论内容。</p>
                 <ul className="space-y-3">
                   <li className="flex items-center text-gray-700">
                     <i className="fas fa-check-circle text-[#2dc100] mr-2"></i>
-                    群规和重要通知归档
+                    可设置密码保护知识产权
                   </li>
                   <li className="flex items-center text-gray-700">
                     <i className="fas fa-check-circle text-[#2dc100] mr-2"></i>
@@ -138,15 +138,15 @@ export default function Home() {
                 <ul className="space-y-3">
                   <li className="flex items-center text-gray-700">
                     <i className="fas fa-check-circle text-[#2dc100] mr-2"></i>
-                    课程讨论整理
+                    课程讨论整理为知识库
                   </li>
                   <li className="flex items-center text-gray-700">
                     <i className="fas fa-check-circle text-[#2dc100] mr-2"></i>
-                    问答资料建设
+                    百问百答资料建设
                   </li>
                   <li className="flex items-center text-gray-700">
                     <i className="fas fa-check-circle text-[#2dc100] mr-2"></i>
-                    学习笔记分享
+                    优秀学习笔记分享
                   </li>
                 </ul>
               </div>
@@ -184,7 +184,7 @@ export default function Home() {
                 <ul className="space-y-3">
                   <li className="flex items-center text-gray-700">
                     <i className="fas fa-check-circle text-[#2dc100] mr-2"></i>
-                    专业知识归档
+                    专业知识归档为知识库
                   </li>
                   <li className="flex items-center text-gray-700">
                     <i className="fas fa-check-circle text-[#2dc100] mr-2"></i>
@@ -206,7 +206,7 @@ export default function Home() {
                 <div className="p-8 lg:p-12">
                   <h2 className="text-4xl font-bold text-gray-900 mb-6">关于群报告</h2>
                   <p className="text-lg text-gray-700 mb-4">
-                    群报告是一个专为HTML代码转换设计的可视化平台。无需复杂部署，简单几步即可将HTML代码变成可访问的网页。
+                    群报告是一个免费的HTML可视化转网页平台，无需复杂部署，简单几步即可将HTML代码变成可访问的网页。支持一次上传多个HTML文件，自动生成集合知识库。支持设置访问密码，保护知识产权。
                   </p>
                   <p className="text-lg text-gray-700 mb-6">
                     我们使用先进的云存储技术，确保您的网页安全、稳定且持久可访问，让分享和展示变得简单高效。

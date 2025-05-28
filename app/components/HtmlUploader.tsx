@@ -3,6 +3,8 @@
 import { useState, useRef, useCallback } from 'react';
 // 假设你已经有某种方式引入了 Font Awesome，例如在全局CSS或Layout中
 // import '@fortawesome/fontawesome-free/css/all.min.css'; 
+import { ArrowUpCircleIcon, ArrowDownCircleIcon } from '@heroicons/react/24/outline'; // 引入Heroicons
+import ToastNotification from './ToastNotification'; // 引入自定义Toast组件
 
 interface UploadedFile {
   name: string;
@@ -21,6 +23,7 @@ export default function HtmlUploader() {
   const [password, setPassword] = useState('');
   const [showUploaderPassword, setShowUploaderPassword] = useState(true);
   const [knowledgeBaseTitle, setKnowledgeBaseTitle] = useState('');
+  const [toast, setToast] = useState({ show: false, message: '', type: 'info' as 'success' | 'error' | 'info' });
 
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setHtmlCode(e.target.value);
@@ -186,6 +189,9 @@ export default function HtmlUploader() {
     }
   }, [handleFileChange]);
 
+  const showToast = (message: string, type: 'success' | 'error' | 'info') => {
+    setToast({ show: true, message, type });
+  };
 
   return (
     <div className="w-full max-w-3xl mx-auto">
@@ -199,7 +205,7 @@ export default function HtmlUploader() {
               : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-300'
           }`}
         >
-          {activeTab === 'set' && uploadedFiles.length > 0 ? '编辑知识库文件' : '上传 (创建知识库或单个网页)'}
+          {activeTab === 'set' && uploadedFiles.length > 0 ? '可调整文件顺序' : '上传 (支持单个或多个网页)'}
         </button>
         <button
           type="button"
@@ -214,6 +220,13 @@ export default function HtmlUploader() {
         </button>
       </div>
 
+      <ToastNotification 
+        message={toast.message}
+        type={toast.type}
+        show={toast.show}
+        onClose={() => setToast({ ...toast, show: false })}
+      />
+
       <form onSubmit={handleSubmit} className="space-y-4">
         {(activeTab === 'upload' || activeTab === 'set') && (
           <div 
@@ -226,7 +239,7 @@ export default function HtmlUploader() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
             </svg>
             <p className="text-lg font-medium text-gray-700">拖放您的HTML文件到此处</p>
-            <p className="text-sm text-gray-500 mt-1 mb-3">或点击选择文件 (可多选创建知识库)</p>
+            <p className="text-sm text-gray-500 mt-1 mb-3">或点击选择文件 (多个文件自动创建知识库)</p>
             <button
               type="button"
               className="px-4 py-2 bg-[#2dc100] text-white rounded-lg hover:bg-[#249c00] focus:outline-none"
@@ -256,7 +269,7 @@ export default function HtmlUploader() {
                   )}
                 </div>
                  {uploadedFiles.length > 1 && (
-                  <p className="text-sm font-bold text-green-600 mb-2">小提示：您可以通过文件名右侧的箭头调整文件在知识库中的顺序。</p>
+                  <p className="text-sm font-bold text-green-600 mb-2">提示：您可以通过文件名右侧的箭头调整文件在知识库中的顺序。</p>
                 )}
                 <ul className="list-none bg-gray-50 p-3 rounded-md max-h-60 overflow-y-auto space-y-2">
                   {uploadedFiles.map((file, index) => (
@@ -271,7 +284,7 @@ export default function HtmlUploader() {
                             className="p-1 rounded hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed"
                             aria-label="Move up"
                           >
-                            <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 15l7-7 7 7"></path></svg>
+                            <ArrowUpCircleIcon className="h-5 w-5 text-gray-600" />
                           </button>
                           <button 
                             type="button" 
@@ -280,7 +293,7 @@ export default function HtmlUploader() {
                             className="p-1 rounded hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed"
                             aria-label="Move down"
                           >
-                            <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                            <ArrowDownCircleIcon className="h-5 w-5 text-gray-600" />
                           </button>
                         </div>
                       )}
@@ -288,7 +301,7 @@ export default function HtmlUploader() {
                   ))}
                 </ul>
                  {uploadedFiles.length === 1 && activeTab === 'upload' && (
-                     <p className="text-xs text-gray-500 mt-1">选择单个文件将使用"粘贴单个代码"的方式部署。如需创建知识库，请选择多个文件，或在选择一个文件后点击上面的"(配置知识库)"链接。</p>
+                     <p className="text-xs text-gray-500 mt-1">选择单个文件将使用"粘贴代码"的方式部署。如需创建知识库，请选择多个文件，或在选择一个文件后点击上面的"(配置知识库)"链接。</p>
                  )}
               </div>
             )}
@@ -318,14 +331,14 @@ export default function HtmlUploader() {
           <div className="my-4 p-4 border border-dashed border-gray-300 rounded-lg bg-gray-50">
             <h3 className="text-lg font-semibold text-gray-800 mb-3">知识库设置</h3>
             <label htmlFor="knowledge-base-title" className="block text-sm font-medium text-gray-700 mb-1">
-              知识库标题:
+              设置知识库标题:
             </label>
             <input
               type="text"
               id="knowledge-base-title"
               value={knowledgeBaseTitle}
               onChange={(e) => setKnowledgeBaseTitle(e.target.value)}
-              placeholder="例如：项目文档、月度日报汇总等"
+              placeholder="例如：5月份群聊精华、年度聊天回忆、月度日报汇总等"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2dc100] focus:border-transparent focus:outline-none text-sm"
             />
              <p className="text-xs text-gray-500 mt-1">已选择 {uploadedFiles.length} 个文件将包含在此知识库中。</p>
@@ -349,7 +362,7 @@ export default function HtmlUploader() {
                   id="setLinkPasswordCheckbox"
                 />
                 <span>
-                  {activeTab === 'set' ? '为此知识库设置密码' : '为此链接设置密码'}
+                  {activeTab === 'set' ? '设置访问密码' : '为此链接设置密码'}
                 </span>
               </label>
             </div>
@@ -357,7 +370,7 @@ export default function HtmlUploader() {
             {setLinkPassword && (
               <div className="my-4">
                 <label htmlFor="link-password" className="block text-sm font-medium text-gray-700 mb-1">
-                  {activeTab === 'set' ? '设置知识库访问密码:' : '设置访问密码:'}
+                  {activeTab === 'set' ? '设置访问密码' : '设置访问密码:'}
                 </label>
                 <div className="relative">
                   <input 
@@ -365,7 +378,7 @@ export default function HtmlUploader() {
                     id="link-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="留空则不设密码"
+                    placeholder={activeTab === 'set' ? "请输入知识库访问密码" : "请输入访问密码"}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2dc100] focus:border-transparent focus:outline-none text-sm pr-10"
                   />
                   <button 
@@ -416,7 +429,7 @@ export default function HtmlUploader() {
               : '您的网页已成功部署。'}
             {deployedInfo.hasPassword ? 
               (deployedInfo.isSet ? '这是一个受密码保护的知识库链接：' : '这是一个受密码保护的链接：') :
-              (deployedInfo.isSet ? '这是一个公开访问的知识库链接：' : '这是一个公开访问的链接：')
+              (deployedInfo.isSet ? '这是一个可公开访问的知识库链接：' : '这是一个可公开访问的链接：')
             }
           </p>
           <a
@@ -448,10 +461,16 @@ export default function HtmlUploader() {
                   if (!urlToCopy.startsWith('http')) {
                     urlToCopy = window.location.origin + urlToCopy;
                   }
-                  navigator.clipboard.writeText(urlToCopy);
-                  alert('链接已复制到剪贴板');
+                  navigator.clipboard.writeText(urlToCopy)
+                    .then(() => {
+                      showToast('链接已复制到剪贴板', 'success');
+                    })
+                    .catch(err => {
+                      console.error('复制失败:', err);
+                      showToast('复制失败，请重试', 'error');
+                    });
                 } else {
-                  alert('无法复制链接，信息不完整。');
+                  showToast('无法复制链接，信息不完整。', 'error');
                 }
               }}
               className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300"

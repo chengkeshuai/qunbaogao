@@ -147,9 +147,9 @@ export default function ViewSetPage() {
     return (
       <div className="bg-gray-100 flex items-center justify-center h-screen">
         <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-sm">
-          <h1 className="text-2xl font-semibold mb-4 text-center text-gray-700">报告集受密码保护</h1>
+          <h1 className="text-2xl font-semibold mb-4 text-center text-gray-700">知识库受密码保护</h1>
           {reportSet?.title && <p className="text-gray-600 mb-2 text-center">标题: {reportSet.title}</p>}
-          <p className="text-gray-600 mb-6 text-center">请输入密码以访问此报告集。</p>
+          <p className="text-gray-600 mb-6 text-center">请输入访问密码</p>
           <form onSubmit={handlePasswordSubmit} className="space-y-4">
             <div>
               <label htmlFor="passwordInputSet" className="block text-sm font-medium text-gray-700">密码:</label>
@@ -194,8 +194,8 @@ export default function ViewSetPage() {
     return (
       <div className="flex justify-center items-center h-screen bg-gray-50">
         <div className="text-center p-8 bg-white shadow-lg rounded-lg">
-            <h2 className="text-2xl font-bold text-gray-700 mb-4">报告集为空或未找到</h2>
-            <p className="text-gray-600">此报告集不包含任何文件，或无法找到该报告集。</p>
+            <h2 className="text-2xl font-bold text-gray-700 mb-4">知识库为空或未找到</h2>
+            <p className="text-gray-600">此知识库不包含任何文件，或无法找到该知识库。</p>
             <Link href="/" legacyBehavior><a className="mt-6 inline-block px-6 py-2 text-sm font-medium text-white bg-[${WECHAT_GREEN}] rounded-lg hover:bg-[${WECHAT_GREEN_HOVER}]">返回首页</a></Link>
         </div>
       </div>
@@ -242,7 +242,7 @@ export default function ViewSetPage() {
             <div className="my-2.5">
               <input 
                 type="text"
-                placeholder="搜索文件..."
+                placeholder="按文件名搜索..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className={`w-full px-3 py-1.5 ${SIDEBAR_TEXT_COLOR} bg-slate-50 border border-slate-300 rounded-md focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none text-sm placeholder-slate-400`}
@@ -275,7 +275,7 @@ export default function ViewSetPage() {
           <div className="mt-auto pt-3 border-t border-slate-300">
              <Link href="/" legacyBehavior>
                 <a className={`w-full text-center block px-3 py-2 rounded-md text-sm font-medium transition-colors text-white bg-slate-500 hover:bg-slate-600`}>
-                 返回首页
+                 返回群报告
                 </a>
               </Link>
           </div>
