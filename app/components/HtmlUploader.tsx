@@ -111,6 +111,40 @@ export default function HtmlUploader() {
 
     try {
       if (activeTab === 'set' && uploadedFiles.length > 0 ) { 
+        // TEST: Send a simplified request first, without files array
+        const testRequestBody: { title?: string; password?: string; test?: boolean } = {
+          test: true, // Add a flag to indicate this is a test
+        };
+        if (knowledgeBaseTitle.trim()) { 
+          testRequestBody.title = knowledgeBaseTitle.trim();
+        }
+        if (setLinkPassword && password.trim().length > 0) {
+          testRequestBody.password = password.trim();
+        }
+
+        console.log('Sending test request to /api/deploy-set:', JSON.stringify(testRequestBody));
+
+        const testResponse = await fetch('/api/deploy-set', { 
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(testRequestBody),
+        });
+
+        console.log('Test response status:', testResponse.status);
+        const testResponseData = await testResponse.json();
+        console.log('Test response data:', testResponseData);
+
+        if (!testResponse.ok && testResponseData.error !== '至少需要上传一个HTML文件来创建报告集') { // Expecting specific error if test passes routing
+           // If it's not the expected error, or if it's still the Content-Type error, then throw
+            throw new Error(testResponseData.error || `Test request failed with status ${testResponse.status}`);
+        }
+        // If the test request went through (even if backend rejected it for missing files),
+        // it means the Content-Type error is likely related to the full files array.
+        // For now, let's assume the test passes and proceed to throw an error to prevent actual deployment with this test code.
+        // To proceed with actual deployment logic, this test block should be removed.
+        // throw new Error('Test completed. Remove test block in HtmlUploader.tsx to deploy normally.'); 
+
+        // Original request logic (commented out for this test)
         const requestBody: { files: UploadedFile[]; title?: string; password?: string } = {
           files: uploadedFiles,
         };
