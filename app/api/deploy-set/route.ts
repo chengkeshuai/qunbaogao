@@ -2,6 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import { uploadToR2 } from '@/app/lib/r2';
 import { getSupabaseAdmin } from '@/lib/supabaseClient';
 import crypto from 'crypto';
+import striptags from 'striptags';
+import nodejieba from 'nodejieba';
+
+// 定义一个简单的停用词列表 (可以根据需要扩展)
+const CHINESE_STOP_WORDS = new Set([
+  '的', '了', '在', '是', '我', '你', '他', '她', '它', '们', '这', '那', '之', '与', '和', '或', '虽然', '但是', '然而', '因此', '所以', '因为', '由于', '并且', '而且', '以及', '不但', '不仅', '也', '还', '就', '都', '只', '被', '把', '给', '对', '向', '从', '到', '于', '至', '以', '则', '即', '若', '而', '故', '乎', '哉', '也哉', '矣', '兮', '般', '似的',
+  'a', 'an', 'and', 'are', 'as', 'at', 'be', 'by', 'for', 'from', 'has', 'he', 'in', 'is', 'it', 'its', 'of', 'on', 'that', 'the', 'to', 'was', 'were', 'will', 'with',
+  ' ', '\n', '\t', '\r', '.', ',', '?', '!', ';', ':', '"', "'", '(', ')', '[', ']', '{', '}', '-', '_', '/', '\\', '|', '@', '#', '$', '%', '^', '&', '*', '~', '`', '<', '>', '=', '+', '·', '‘', '’', '“', '”', '，', '。', '？', '！', '；', '：', '（', '）', '【', '】', '——', '……', '《', '》', '〈', '〉'
+]);
+
+// 加载nodejieba默认词典 (如果需要自定义词典，请查阅nodejieba文档)
+// nodejieba.load(); // 通常在模块加载时自动完成，但显式调用也可以
 
 interface UploadedFile {
   name: string;
@@ -94,17 +106,41 @@ export async function POST(request: NextRequest) {
         uniqueFileR2Key,
         htmlBuffer,
         'text/html'
-        // No specific metadata per file in set for now
       );
 
       if (!r2Url) {
-        // TODO: Consider rollback or cleanup if one file fails? For MVP, proceed but log error.
         console.error(`Failed to upload file ${file.name} to R2 for set ${setId}`);
-        // Optionally, skip adding this file to report_files or return an error for the whole set
-        // For now, we'll let it proceed and the file just won't be in the set if R2 upload failed.
-        // A more robust solution would delete the report_set or mark it as errored.
-        continue; // Or throw, causing the set creation to fail
+        continue;
       }
+
+      // --- 新增：提取关键词 ---
+      let keywords: string[] = [];
+      try {
+        const plainText = striptags(htmlContent, [], ' ').replace(/\s+/g, ' ').trim(); // 移除HTML标签，并将多个空格替换为单个空格
+        if (plainText.length > 0) {
+          const topKeywordsCount = 10; // 提取前10个高频词
+          // 使用jieba进行分词，tag参数为true表示返回词性，我们这里不需要，只取词
+          // cut_for_search 表示搜索引擎模式，会切出更多可能的词
+          const words: string[] = nodejieba.cut(plainText); // 使用 nodejieba.cut，并显式声明类型
+          
+          const wordFrequencies: { [key: string]: number } = {};
+          words.forEach((word: string) => { // 显式声明 word 类型
+            const w = word.toLowerCase(); // 转为小写以统一计数
+            if (w.length > 1 && !CHINESE_STOP_WORDS.has(w) && !/^\d+$/.test(w)) { // 过滤单个字符、停用词和纯数字
+              wordFrequencies[w] = (wordFrequencies[w] || 0) + 1;
+            }
+          });
+
+          keywords = Object.entries(wordFrequencies)
+            .sort(([, a], [, b]) => b - a) // 按频率降序排序
+            .slice(0, topKeywordsCount)    // 取前N个
+            .map(([word]) => word);         // 只取词本身
+        }
+      } catch (kwError) {
+        console.error(`Error extracting keywords for file ${file.name}:`, kwError);
+        // 关键词提取失败不应阻止文件记录的创建，keywords将为空数组
+      }
+      // --- 关键词提取结束 ---
 
       const { error: fileInsertError } = await supabaseAdmin
         .from('report_files')
@@ -113,6 +149,7 @@ export async function POST(request: NextRequest) {
           original_filename: file.name,
           r2_object_key: uniqueFileR2Key,
           order_in_set: i,
+          keywords: keywords, // 存储关键词
         });
 
       if (fileInsertError) {

@@ -10,6 +10,7 @@ interface ReportFile {
   original_filename: string;
   r2_object_key: string;
   order_in_set: number;
+  keywords?: string[]; // 新增 keywords 字段，类型为字符串数组，可选
 }
 
 interface ReportSetDetails {
@@ -206,9 +207,12 @@ export default function ViewSetPage() {
   const sortedFiles = [...reportSet.files].sort((a, b) => a.order_in_set - b.order_in_set);
 
   // 新增：根据搜索词过滤文件
-  const filteredFiles = sortedFiles.filter(file => 
-    file.original_filename.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredFiles = sortedFiles.filter(file => {
+    const term = searchTerm.toLowerCase();
+    const filenameMatch = file.original_filename.toLowerCase().includes(term);
+    const keywordsMatch = file.keywords && file.keywords.some(keyword => keyword.toLowerCase().includes(term));
+    return filenameMatch || keywordsMatch;
+  });
 
   return (
     <div className="flex flex-col md:flex-row h-screen bg-gray-100">
