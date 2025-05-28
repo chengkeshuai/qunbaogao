@@ -230,7 +230,7 @@ export default function ViewSetPage() {
                      ${isSidebarCollapsed ? 'md:ml-16' : 'md:ml-64'}`}>
         {currentFileKey ? (
           <iframe
-            src={`/api/view-file/${currentFileKey}${token ? '?token=' + token : ''}`}
+            src={`/api/view/${currentFileKey}${token ? '?token=' + token : ''}`}
             className="w-full h-full border-none"
             title="Report file content"
           ></iframe>
