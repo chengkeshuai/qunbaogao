@@ -111,58 +111,39 @@ export default function HtmlUploader() {
 
     try {
       if (activeTab === 'set' && uploadedFiles.length > 0 ) { 
-        // TEST: Send a simplified request first, without files array
-        const testRequestBody: { title?: string; password?: string; test?: boolean } = {
-          test: true, // Add a flag to indicate this is a test
-        };
+        // Create FormData to send
+        const formData = new FormData();
         if (knowledgeBaseTitle.trim()) { 
-          testRequestBody.title = knowledgeBaseTitle.trim();
+          formData.append('title', knowledgeBaseTitle.trim());
         }
         if (setLinkPassword && password.trim().length > 0) {
-          testRequestBody.password = password.trim();
+          formData.append('password', password.trim());
         }
 
-        console.log('Sending test request to /api/deploy-set:', JSON.stringify(testRequestBody));
+        // Stringify the uploadedFiles array (name and content) and append it
+        const filesInfo = uploadedFiles.map(file => ({ name: file.name, content: file.content }));
+        formData.append('filesInfo', JSON.stringify(filesInfo));
 
-        const testResponse = await fetch('/api/deploy-set', { 
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(testRequestBody),
-        });
-
-        console.log('Test response status:', testResponse.status);
-        const testResponseData = await testResponse.json();
-        console.log('Test response data:', testResponseData);
-
-        if (!testResponse.ok && testResponseData.error !== '至少需要上传一个HTML文件来创建报告集') { // Expecting specific error if test passes routing
-           // If it's not the expected error, or if it's still the Content-Type error, then throw
-            throw new Error(testResponseData.error || `Test request failed with status ${testResponse.status}`);
-        }
-        // If the test request went through (even if backend rejected it for missing files),
-        // it means the Content-Type error is likely related to the full files array.
-        // For now, let's assume the test passes and proceed to throw an error to prevent actual deployment with this test code.
-        // To proceed with actual deployment logic, this test block should be removed.
-        // throw new Error('Test completed. Remove test block in HtmlUploader.tsx to deploy normally.'); 
-
-        // Original request logic (commented out for this test)
-        const requestBody: { files: UploadedFile[]; title?: string; password?: string } = {
-          files: uploadedFiles,
-        };
-        if (knowledgeBaseTitle.trim()) { 
-          requestBody.title = knowledgeBaseTitle.trim();
-        }
-        if (setLinkPassword && password.trim().length > 0) {
-          requestBody.password = password.trim();
-        }
+        // Log the FormData entries (for debugging, can be removed later)
+        // for (let [key, value] of formData.entries()) {
+        //   console.log(`${key}: ${value instanceof File ? value.name : value}`);
+        // }
 
         const response = await fetch('/api/deploy-set', { 
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(requestBody),
+          // DO NOT set Content-Type header, browser will do it for FormData
+          body: formData,
         });
 
         if (!response.ok) {
-          const errorData = await response.json().catch(() => ({ message: '创建知识库失败，无法解析错误信息' }));
+          // Try to parse error response as JSON, otherwise use status text
+          let errorData;
+          try {
+            errorData = await response.json();
+          } catch (e) {
+            // If response is not JSON, use status text or a generic message
+            errorData = { error: response.statusText || '创建知识库失败，服务器响应无效' };
+          }
           throw new Error(errorData.error || '创建知识库失败');
         }
         const data = await response.json();
