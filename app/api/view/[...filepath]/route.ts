@@ -25,9 +25,6 @@ const S3 = new S3Client({
 function getPasswordPromptHTML(filepathForFormAction: string, error?: string): string {
   const WECHAT_GREEN = '#2dc100';
   const WECHAT_GREEN_HOVER = '#249c00';
-  // Ensure filepathForFormAction is properly encoded for URL path and query param if needed
-  // The form action itself should point to the current full path.
-  // The filename for display can be the last part of the path.
   const displayFilename = filepathForFormAction.split('/').pop() || filepathForFormAction;
 
   return `
@@ -42,10 +39,9 @@ function getPasswordPromptHTML(filepathForFormAction: string, error?: string): s
 <body class="bg-gray-100 flex items-center justify-center h-screen">
   <div class="bg-white p-8 rounded-lg shadow-md w-full max-w-sm">
     <h1 class="text-2xl font-semibold mb-4 text-center text-gray-700">受保护的内容</h1>
-    <p class="text-gray-600 mb-2 text-center">文件: ${displayFilename}</p>
     <p class="text-gray-600 mb-6 text-center">此内容需要密码才能访问。</p>
-    {/* Form action should be the current path of the request */}
-    <form method="GET" action="" class="space-y-4"> 
+    {/* Form action is empty, will submit to the current URL by default */}
+    <form method="GET" action="" class="space-y-4">
       <div>
         <label for="passwordInput" class="block text-sm font-medium text-gray-700">密码:</label>
         <div class="relative mt-1">

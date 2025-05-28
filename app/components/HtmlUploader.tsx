@@ -24,6 +24,10 @@ export default function HtmlUploader() {
   const [showUploaderPassword, setShowUploaderPassword] = useState(true);
   const [knowledgeBaseTitle, setKnowledgeBaseTitle] = useState('');
   const [toast, setToast] = useState({ show: false, message: '', type: 'info' as 'success' | 'error' | 'info' });
+  const [isDeploying, setIsDeploying] = useState(false);
+  const [editingSetId, setEditingSetId] = useState('');
+  const [isPasswordProtected, setIsPasswordProtected] = useState(false);
+  const [knowledgeBasePassword, setKnowledgeBasePassword] = useState('');
 
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setHtmlCode(e.target.value);
@@ -191,6 +195,74 @@ export default function HtmlUploader() {
 
   const showToast = (message: string, type: 'success' | 'error' | 'info') => {
     setToast({ show: true, message, type });
+  };
+
+  const handleDeploySet = async () => {
+    if (uploadedFiles.length === 0 && !editingSetId) {
+      showToast('请至少上传一个HTML文件', 'error');
+      return;
+    }
+    if (!knowledgeBaseTitle.trim() && !editingSetId) {
+      showToast('请输入知识库标题', 'error');
+      return;
+    }
+    if (isPasswordProtected && !knowledgeBasePassword.trim() && !editingSetId) { // Only require password if creating new and protected
+      showToast('请为受保护的知识库输入密码', 'error');
+      return;
+    }
+
+    setIsDeploying(true);
+    showToast('正在部署知识库...', 'info');
+
+    // --- 测试简化 FormData --- 
+    const testFormData = new FormData();
+    testFormData.append('title', knowledgeBaseTitle || 'Test Title');
+    if (editingSetId) {
+      testFormData.append('reportSetId', editingSetId);
+    }
+    if (isPasswordProtected && knowledgeBasePassword) {
+      testFormData.append('password', knowledgeBasePassword);
+    }
+    // --- 结束测试简化 FormData ---
+
+    /* // 原来的 FormData 构建逻辑，暂时注释掉
+    const formData = new FormData();
+    formData.append('title', knowledgeBaseTitle);
+    if (isPasswordProtected && knowledgeBasePassword) {
+      formData.append('password', knowledgeBasePassword);
+    }
+    if (editingSetId) {
+      formData.append('reportSetId', editingSetId);
+    }
+    const userId = supabaseUser?.id;
+    if (userId) {
+        formData.append('userId', userId);
+    }
+
+    const filesData = uploadedFiles.map(file => ({
+      name: file.name,
+      content: file.base64Content, 
+    }));
+    formData.append('filesData', JSON.stringify(filesData));
+
+    uploadedFiles.forEach(file => {
+      if (file.originalFile) {
+        formData.append(file.name, file.originalFile);
+      }
+    });
+    */
+
+    try {
+      const response = await fetch('/api/deploy-set', {
+        method: 'POST',
+        body: testFormData, // 使用简化的 FormData 进行测试
+      });
+
+      const result = await response.json();
+      // ... existing code ...
+    } catch (err) {
+      // ... existing error handling ...
+    }
   };
 
   return (
