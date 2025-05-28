@@ -3,6 +3,7 @@
 import { useEffect, useState, FormEvent } from 'react';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { ChevronLeftIcon, ChevronRightIcon, Bars3Icon } from '@heroicons/react/24/outline';
 
 interface ReportFile {
   id: string;
@@ -21,6 +22,14 @@ interface ReportSetDetails {
 const WECHAT_GREEN = '#2dc100';
 const WECHAT_GREEN_HOVER = '#249c00';
 
+// 定义新的颜色常量
+const SIDEBAR_BG = 'bg-slate-100'; // 侧边栏背景色
+const SIDEBAR_TEXT_COLOR = 'text-slate-700';
+const SIDEBAR_TITLE_COLOR = 'text-slate-800';
+const SELECTED_ITEM_BG = 'bg-slate-600'; // 选中项背景
+const SELECTED_ITEM_TEXT = 'text-white';
+const HOVER_ITEM_BG = 'hover:bg-slate-300';
+
 export default function ViewSetPage() {
   const params = useParams();
   const searchParams = useSearchParams();
@@ -35,6 +44,8 @@ export default function ViewSetPage() {
   const [needsPassword, setNeedsPassword] = useState(false);
   const [currentFileKey, setCurrentFileKey] = useState<string | null>(null);
   const [showPasswordInput, setShowPasswordInput] = useState(true);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [searchTerm, setSearchTerm] = useState(''); // 新增：搜索词状态
 
   useEffect(() => {
     if (!setId) return;
@@ -106,6 +117,10 @@ export default function ViewSetPage() {
           @keyframes spinner {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
+          }
+          /* 添加侧边栏过渡动画 */
+          .sidebar-transition {
+            transition: width 0.3s ease-in-out, padding 0.3s ease-in-out;
           }
         `}</style>
       </div>
@@ -190,34 +205,85 @@ export default function ViewSetPage() {
   // Sort files by order_in_set for display
   const sortedFiles = [...reportSet.files].sort((a, b) => a.order_in_set - b.order_in_set);
 
+  // 新增：根据搜索词过滤文件
+  const filteredFiles = sortedFiles.filter(file => 
+    file.original_filename.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
     <div className="flex flex-col md:flex-row h-screen bg-gray-100">
       {/* Sidebar Navigation */}
-      <div className="w-full md:w-64 bg-white shadow-md p-4 space-y-2 overflow-y-auto flex-shrink-0 md:h-full">
-        <h2 className="text-xl font-semibold text-gray-800 mb-3 break-words">
-          {reportSet.title || '报告集'}
-        </h2>
-        {sortedFiles.map((file) => (
+      <div 
+        className={`sidebar-transition ${SIDEBAR_BG} shadow-lg flex-shrink-0 md:h-full overflow-y-auto flex flex-col
+                    ${isSidebarCollapsed ? 'w-0 md:w-[68px] p-0 md:p-2' : 'w-full md:w-72 p-4'}`}
+      >
+        <div className={`flex items-center ${isSidebarCollapsed ? 'justify-center' : 'justify-between'} mb-3`}>
+          {!isSidebarCollapsed && (
+            <h2 className={`text-xl font-semibold ${SIDEBAR_TITLE_COLOR} break-words truncate`}>
+              {reportSet.title || '知识库'}
+            </h2>
+          )}
           <button
-            key={file.id}
-            onClick={() => setCurrentFileKey(file.r2_object_key)}
-            className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors break-all
-                        ${currentFileKey === file.r2_object_key 
-                          ? `bg-[${WECHAT_GREEN}] text-white` 
-                          : 'text-gray-700 hover:bg-gray-200'}`}
+            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            className={`p-1.5 rounded-md ${HOVER_ITEM_BG} ${SIDEBAR_TEXT_COLOR} focus:outline-none focus:ring-2 focus:ring-slate-500`}
+            aria-label={isSidebarCollapsed ? "展开侧边栏" : "折叠侧边栏"}
           >
-            {file.original_filename}
+            {isSidebarCollapsed ? (
+              <Bars3Icon className="h-6 w-6" />
+            ) : (
+              <ChevronLeftIcon className="h-6 w-6" />
+            )}
           </button>
-        ))}
-         <Link href="/" legacyBehavior>
-            <a className={`mt-4 w-full text-center block px-3 py-2 rounded-md text-sm font-medium transition-colors text-white bg-gray-500 hover:bg-gray-600`}>
-             返回首页
-            </a>
-          </Link>
+        </div>
+
+        {!isSidebarCollapsed && (
+          <>
+            {/* 新增搜索框 */}
+            <div className="my-2.5">
+              <input 
+                type="text"
+                placeholder="搜索文件..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className={`w-full px-3 py-1.5 ${SIDEBAR_TEXT_COLOR} bg-slate-50 border border-slate-300 rounded-md focus:ring-1 focus:ring-slate-500 focus:border-slate-500 outline-none text-sm placeholder-slate-400`}
+              />
+            </div>
+
+            <div className="space-y-1.5 flex-grow overflow-y-auto pr-1 mr-[-4px]"> {/* 添加 pr 和 mr 来处理滚动条可能引起的宽度问题 */}
+              {filteredFiles.length > 0 ? (
+                filteredFiles.map((file) => (
+                  <button
+                    key={file.id}
+                    onClick={() => setCurrentFileKey(file.r2_object_key)}
+                    title={file.original_filename}
+                    className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors break-all truncate
+                                ${currentFileKey === file.r2_object_key 
+                                  ? `${SELECTED_ITEM_BG} ${SELECTED_ITEM_TEXT}` 
+                                  : `${SIDEBAR_TEXT_COLOR} ${HOVER_ITEM_BG}`}`}
+                  >
+                    {file.original_filename}
+                  </button>
+                ))
+              ) : (
+                <p className={`px-3 py-2 text-sm ${SIDEBAR_TEXT_COLOR} italic`}>未找到匹配的文件。</p>
+              )}
+            </div>
+          </>
+        )}
+        
+        {!isSidebarCollapsed && (
+          <div className="mt-auto pt-3 border-t border-slate-300">
+             <Link href="/" legacyBehavior>
+                <a className={`w-full text-center block px-3 py-2 rounded-md text-sm font-medium transition-colors text-white bg-slate-500 hover:bg-slate-600`}>
+                 返回首页
+                </a>
+              </Link>
+          </div>
+        )}
       </div>
 
       {/* Main Content Iframe */}
-      <div className="flex-grow p-1 md:p-0 h-full w-full">
+      <div className={`flex-grow h-full w-full transition-all duration-300 ease-in-out ${isSidebarCollapsed ? 'md:ml-[68px]' : 'md:ml-0'}`}>
         {currentFileKey ? (
           <iframe
             src={`/api/view/${currentFileKey}`}
