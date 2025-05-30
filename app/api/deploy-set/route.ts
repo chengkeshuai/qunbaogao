@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
     const filesToInsert = filesInfo.map((file, index) => ({
       report_set_id: reportSetId,
       original_filename: file.name,
-      r2_object_key: `report_sets/${reportSetId}/${file.name.replace(/[^a-zA-Z0-9_.-]+/g, '_')}`,
+      r2_object_key: `report_sets/${reportSetId}/${encodeURIComponent(file.name)}`,
       order_in_set: index, // Use existing order_in_set column
     }));
 
@@ -160,7 +160,7 @@ export async function POST(request: NextRequest) {
 
     // Upload files to R2
     for (const file of filesInfo) {
-      const r2Key = `report_sets/${reportSetId}/${file.name.replace(/[^a-zA-Z0-9_.-]+/g, '_')}`;
+      const r2Key = `report_sets/${reportSetId}/${encodeURIComponent(file.name)}`;
       try {
         await S3.send(new PutObjectCommand({
           Bucket: R2_BUCKET_NAME,

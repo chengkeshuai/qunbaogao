@@ -261,6 +261,31 @@ export default function ViewSetPage() {
         {currentFileKey ? (
           <iframe
             src={(() => {
+              // 获取当前文件的索引
+              const currentFileIndex = sortedFiles.findIndex(f => f.r2_object_key === currentFileKey);
+              
+              // 使用新的直接访问API
+              if (currentFileIndex !== -1) {
+                let directApiUrl = `/api/direct-view/${setId}/${currentFileIndex}`;
+                const queryParams = [];
+                
+                // 传递token参数用于密码验证
+                if (userProvidedToken && knowledgeBaseHadPasswordProtection) {
+                  queryParams.push(`token=${encodeURIComponent(userProvidedToken)}`);
+                }
+                
+                // 标记是否在知识库内部查看
+                queryParams.push('isInsideKnowledgeBase=true');
+                
+                if (queryParams.length > 0) {
+                  directApiUrl += '?' + queryParams.join('&');
+                }
+                
+                console.log(`[ViewSetPage] Using direct-view API: ${directApiUrl}`);
+                return directApiUrl;
+              }
+              
+              // 作为备用，使用原来的方式
               let srcUrl = `/api/view/${currentFileKey}`;
               const queryParams = [];
               console.log(`[ViewSetPage] Building iframe src: currentFileKey=${currentFileKey}, userToken=${userProvidedToken}, kbHadPasswordProtection=${knowledgeBaseHadPasswordProtection}`); // LOG IFRAME SRC PARAMS

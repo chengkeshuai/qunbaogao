@@ -90,7 +90,7 @@ export async function GET(
     return new NextResponse('Filepath is required', { status: 400 });
   }
   // Join the parts to form the full R2 key, which might include slashes for nested paths
-  const r2Key = filepathParts.join('/');
+  let r2Key = filepathParts.join('/');
 
   // Ensure R2 environment variables are loaded
   if (!R2_BUCKET_NAME || !S3.config.credentials) {
@@ -105,7 +105,72 @@ export async function GET(
     // And the files in report sets are stored under `report_sets/[setId]/...` directly.
     // Files from single deploy are under `deployed-html/[filename]`. 
     // The r2Key constructed from filepathParts will be the actual key in the bucket.
-    const metadata = await getObjectMetadata(r2Key); 
+    let metadata = await getObjectMetadata(r2Key); 
+    
+    // 如果直接使用原始路径找不到，尝试用旧的下划线替换方式
+    if (!metadata && r2Key.includes('/')) {
+      // 分离路径和文件名
+      const lastSlashIndex = r2Key.lastIndexOf('/');
+      const path = r2Key.substring(0, lastSlashIndex + 1);
+      const filename = r2Key.substring(lastSlashIndex + 1);
+      
+      // 分离文件名和扩展名
+      let filenameWithoutExt = filename;
+      let extension = '';
+      const lastDotIndex = filename.lastIndexOf('.');
+      if (lastDotIndex !== -1) {
+        filenameWithoutExt = filename.substring(0, lastDotIndex);
+        extension = filename.substring(lastDotIndex); // 包含点号
+      }
+      
+      // 多种替换模式 - 保留扩展名
+      const patterns = [
+        // 1. 原来的替换方式 - 所有非字母数字字符替换为下划线
+        filenameWithoutExt.replace(/[^a-zA-Z0-9_.-]+/g, '_') + extension,
+        
+        // 2. 仅数字和月/日分隔符
+        filenameWithoutExt.replace(/(\d+)[^\d\w]+(\d+)[^\d\w]+(\d+)/g, '$1_$2_$3').replace(/[^a-zA-Z0-9_.-]+/g, '_') + extension,
+        
+        // 3. 仅保留数字，其他替换为下划线
+        filenameWithoutExt.replace(/[^0-9]+/g, '_') + extension,
+        
+        // 4. 不带扩展名的原始替换
+        filenameWithoutExt.replace(/[^a-zA-Z0-9_.-]+/g, '_'),
+        
+        // 5. 仅保留数字并去掉扩展名
+        filenameWithoutExt.replace(/[^0-9]+/g, '_'),
+        
+        // 6. 完全匹配日期格式的特殊处理 (如3月22日 -> 3_22_)
+        filenameWithoutExt.replace(/(\d+)[月](\d+)[日]/g, '$1_$2_'),
+        
+        // 7. 中文替换为短横线
+        filenameWithoutExt.replace(/[\u4e00-\u9fa5]+/g, '-') + extension,
+        
+        // 8. 完全匹配为下划线，但保留扩展名
+        '_'.repeat(filenameWithoutExt.length > 0 ? filenameWithoutExt.length : 1) + extension
+      ];
+      
+      console.log(`[API View] Original r2Key (${r2Key}) not found. Trying alternative patterns...`);
+      
+      // 尝试每一种模式
+      for (let i = 0; i < patterns.length; i++) {
+        const alternativeR2Key = path + patterns[i];
+        console.log(`[API View] Trying pattern ${i+1}: ${alternativeR2Key}`);
+        
+        metadata = await getObjectMetadata(alternativeR2Key);
+        
+        if (metadata) {
+          console.log(`[API View] Success! Found file with pattern ${i+1}: ${alternativeR2Key}`);
+          r2Key = alternativeR2Key;
+          break;
+        }
+      }
+      
+      if (!metadata) {
+        console.log(`[API View] Failed to find file with any alternative pattern. Original path: ${r2Key}`);
+      }
+    }
+    
     const passwordHash = metadata?.['password-hash'];
     console.log(`[API View] r2Key: ${r2Key}, Found passwordHash in metadata: ${!!passwordHash}`); // LOG METADATA CHECK
 
@@ -176,7 +241,7 @@ export async function GET(
 
     const getObjectCommand = new GetObjectCommand({
       Bucket: R2_BUCKET_NAME,
-      Key: r2Key, // Use the full r2Key directly
+      Key: r2Key, // 使用可能已经更新的r2Key
     });
 
     const { Body, ContentType } = await S3.send(getObjectCommand);
