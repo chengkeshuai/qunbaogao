@@ -28,6 +28,17 @@ export default function Header() {
               正式版
             </span>
           </div>
+          
+          {/* 导航链接 */}
+          <div className="hidden md:flex items-center space-x-6">
+            <Link 
+              href="/tutorial" 
+              className="text-gray-600 hover:text-[#2dc100] transition-colors duration-200 font-medium"
+            >
+              使用教程
+            </Link>
+          </div>
+          
           <div className="flex items-center space-x-4">
             <a 
               href="https://github.com/chengkeshuai" 

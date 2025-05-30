@@ -5,6 +5,7 @@ import Header from './components/Header';
 import Footer from './components/Footer';
 import HtmlUploader from './components/HtmlUploader';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 export default function Home() {
   const [html, setHtml] = useState('');
@@ -42,7 +43,7 @@ export default function Home() {
           <div className="text-center mb-12">
             <h1 className="text-4xl font-bold text-gray-900 mb-4">HTML代码转可访问网页</h1>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              上传或粘贴您的HTML代码，我们将为您生成一个可在多端设备访问的网页，并提供专属链接。聊天记录不会转HTML？这里有教程。
+              上传或粘贴您的HTML代码，我们将为您生成一个可在多端设备访问的网页，并提供专属链接。聊天记录不会转HTML？<Link href="/tutorial" className="text-[#2dc100] hover:underline">这里有教程</Link>。
             </p>
           </div>
           
