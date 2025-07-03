@@ -37,6 +37,12 @@ export default function Header() {
             >
               使用教程
             </Link>
+            <Link 
+              href="/tools" 
+              className="text-gray-600 hover:text-[#2dc100] transition-colors duration-200 font-medium"
+            >
+              实用工具
+            </Link>
           </div>
           
           <div className="flex items-center space-x-4">
