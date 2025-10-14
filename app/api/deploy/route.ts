@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { uploadToR2 } from '@/app/lib/r2'; // 恢复R2上传服务
 // import { uploadFileToCOS } from '@/lib/cos-upload'; // 注释掉COS上传服务
 import crypto from 'crypto'; // Import crypto for hashing
+import { detectBadContent } from '@/app/lib/contentFilter';
 
 export async function POST(request: NextRequest) {
   try {
@@ -45,6 +46,20 @@ export async function POST(request: NextRequest) {
 </body>
 </html>
       `.trim();
+    }
+
+    // 内容检测
+    const contentReport = detectBadContent(htmlContent, 'single-file-upload');
+    if (contentReport.riskLevel === 'high') {
+      return NextResponse.json({
+        error: '内容检测失败',
+        details: '检测到高风险内容，无法上传',
+        reasons: contentReport.reasons
+      }, { status: 400 });
+    }
+
+    if (contentReport.riskLevel === 'medium') {
+      console.warn('检测到中等风险内容:', contentReport.reasons);
     }
 
     // 将HTML内容转换为Buffer

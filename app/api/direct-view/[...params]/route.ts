@@ -3,6 +3,8 @@ import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import { R2_BUCKET_NAME, getObjectMetadata } from '@/app/lib/r2';
 import { getSupabaseAdmin } from '@/lib/supabaseClient';
 import crypto from 'crypto';
+import { recordPageView } from '@/app/lib/analytics';
+import { getUserIP } from '@/app/lib/userManagement';
 
 const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID;
 const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID;
@@ -279,6 +281,14 @@ export async function GET(
           // 注入脚本到HTML内容中
           htmlContent = htmlContent.replace('</body>', `${postMessageScript}</body>`);
         }
+        
+        // 记录页面访问
+        const userIP = getUserIP(request);
+        const userAgent = request.headers.get('user-agent') || 'unknown';
+        const referrer = request.headers.get('referer') || '';
+        const currentUrl = request.url;
+        
+        recordPageView(currentUrl, referrer, userAgent, userIP);
         
         return new NextResponse(htmlContent, {
           status: 200,

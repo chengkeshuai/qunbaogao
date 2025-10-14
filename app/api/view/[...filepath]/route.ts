@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import { R2_BUCKET_NAME, getObjectMetadata } from '@/app/lib/r2'; // R2_PUBLIC_URL no longer used directly here
 import crypto from 'crypto';
+import { injectAds, isAdFriendly, getAdConfig } from '@/app/lib/adInjection';
+import { recordPageView } from '@/app/lib/analytics';
+import { getUserIP } from '@/app/lib/userManagement';
 
 const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID;
 const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID;
@@ -291,6 +294,20 @@ export async function GET(
           }
         }
       }
+    }
+
+    // 记录页面访问
+    const userIP = getUserIP(request);
+    const userAgent = request.headers.get('user-agent') || 'unknown';
+    const referrer = request.headers.get('referer') || '';
+    const currentUrl = request.url;
+    
+    recordPageView(currentUrl, referrer, userAgent, userIP);
+
+    // 广告注入（如果启用且内容适合）
+    const adConfig = getAdConfig();
+    if (adConfig.enabled && isAdFriendly(htmlContent)) {
+      htmlContent = injectAds(htmlContent, adConfig.position);
     }
 
     return new NextResponse(htmlContent, {

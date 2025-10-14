@@ -4,6 +4,8 @@ import { getSupabaseAdmin } from '@/lib/supabaseClient';
 import crypto from 'crypto';
 import { uploadToR2 } from '@/app/lib/r2';
 import { R2_BUCKET_NAME } from '@/app/lib/r2';
+import { detectBadContent } from '@/app/lib/contentFilter';
+import { getUserIP, isIPBlocked, recordUserBehavior } from '@/app/lib/userManagement';
 // import striptags from 'striptags';
 // import nodejieba from 'nodejieba';
 
@@ -108,6 +110,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Supabase client not initialized' }, { status: 500 });
   }
 
+  // 检查IP是否被封禁
+  const userIP = getUserIP(request);
+  if (isIPBlocked(userIP)) {
+    return NextResponse.json({ 
+      error: '访问被拒绝',
+      details: '您的IP地址已被封禁，如有疑问请联系管理员'
+    }, { status: 403 });
+  }
+
   try {
     const formData = await request.formData();
     const title = formData.get('title') as string || 'Untitled Report Set';
@@ -121,6 +132,38 @@ export async function POST(request: NextRequest) {
 
     if (!filesInfo || filesInfo.length === 0) {
       return NextResponse.json({ error: 'No files provided for the report set' }, { status: 400 });
+    }
+
+    // 内容检测
+    const contentReports = filesInfo.map(file => ({
+      filename: file.name,
+      report: detectBadContent(file.content, file.name)
+    }));
+
+    // 检查是否有高风险内容
+    const highRiskFiles = contentReports.filter(r => r.report.riskLevel === 'high');
+    if (highRiskFiles.length > 0) {
+      // 记录用户的不良行为
+      recordUserBehavior(userIP, 'blocked_content');
+      recordUserBehavior(userIP, 'suspicious', `尝试上传高风险内容: ${highRiskFiles.map(f => f.filename).join(', ')}`);
+      
+      return NextResponse.json({ 
+        error: '内容检测失败',
+        details: '检测到高风险内容，无法上传',
+        blockedFiles: highRiskFiles.map(f => ({
+          filename: f.filename,
+          reasons: f.report.reasons
+        }))
+      }, { status: 400 });
+    }
+
+    // 记录中等风险内容（允许上传但标记）
+    const mediumRiskFiles = contentReports.filter(r => r.report.riskLevel === 'medium');
+    if (mediumRiskFiles.length > 0) {
+      console.warn('检测到中等风险内容:', mediumRiskFiles.map(f => ({
+        filename: f.filename,
+        reasons: f.report.reasons
+      })));
     }
 
     let passwordHash: string | null = null;
@@ -177,6 +220,9 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: `Failed to upload ${file.name} to R2` }, { status: 500 });
       }
     }
+
+    // 记录用户正常上传行为
+    recordUserBehavior(userIP, 'upload');
 
     const appViewUrl = `/view-set/${reportSetId}`;
     return NextResponse.json({
